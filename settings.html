@@ -6,113 +6,137 @@
   <title>Xplainify Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-  <div class="settings-container">
-    <header class="header">
+  <div class="settings-layout">
+    <!-- Header -->
+    <header class="settings-header">
       <div class="header-brand">
-        <img src="icons/icon48.png" alt="Xplainify" class="brand-logo-img" width="28" height="28">
-        <span class="logo">XPLAINIFY</span>
+        <img src="icons/icon48.png" alt="" class="brand-icon" width="20" height="20" aria-hidden="true">
+        <span class="brand-wordmark">XPLAINIFY</span>
       </div>
-      <h1 class="title">Settings</h1>
-      <p class="subtitle">Configure AI model access and manage your local preferences.</p>
+      <h1 class="settings-title">Settings</h1>
+      <p class="settings-subtitle">Manage your local Gemini API configuration and privacy preferences.</p>
     </header>
 
-    <main>
-      <!-- Section 1: AI Provider & API Key -->
-      <section class="glass-card">
-        <div class="card-section-label">AI PROVIDER</div>
-        
-        <div class="provider-header">
-          <div class="provider-title-group">
-            <h2 class="provider-name">Google Gemini</h2>
-          </div>
-        </div>
+    <hr class="rule">
 
+    <main class="settings-main">
+      <!-- Section 1: Gemini API Key Configuration -->
+      <section class="settings-section">
+        <div class="section-label">AI ENGINE CONFIGURATION</div>
+        <h2 class="section-title">Google Gemini Key</h2>
+        
         <!-- State 1: Key Setup (No Key Saved) -->
         <div id="key-setup" style="display: none;">
           <div class="status-indicator not-configured">
             <span class="status-dot"></span>
-            <span>API Key Not Configured</span>
+            <span>API KEY NOT CONFIGURED</span>
           </div>
-          <p class="section-help">Enter your Gemini API key below. It will be stored locally in your browser and used directly for all summaries and code explanations.</p>
-          <div class="input-wrapper">
+          <p class="section-help">Paste your Gemini API key below. It is stored exclusively inside your Chrome browser's local storage and used directly to generate summaries and code breakdowns.</p>
+          <div class="input-field-group">
             <label for="api-key-input" class="sr-only">Gemini API Key</label>
-            <input type="password" id="api-key-input" placeholder="Paste your Gemini API key (AIzaSy...)" autocomplete="off" spellcheck="false">
+            <input type="password" id="api-key-input" placeholder="Paste Gemini API key (AIzaSy...)" autocomplete="off" spellcheck="false">
           </div>
-          <div class="button-group">
-            <button id="save-key-btn" class="primary-btn">Save Key</button>
-            <button id="get-key-btn" class="secondary-btn">Get API Key &nearr;</button>
+          <div class="button-row">
+            <button id="save-key-btn" class="action-btn primary-action">
+              <span>SAVE KEY</span>
+              <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+            </button>
+            <button id="get-key-btn" class="action-btn secondary-action">
+              <span>GET API KEY</span>
+              <span class="btn-arrow" aria-hidden="true">&nearr;</span>
+            </button>
           </div>
         </div>
 
         <!-- State 2: Key Saved -->
         <div id="key-saved" style="display: none;">
-          <div class="status-indicator connected">
+          <div class="status-indicator configured">
             <span class="status-dot"></span>
-            <span>Connected & Ready</span>
+            <span>CONNECTED &bull; READY</span>
           </div>
-          <div class="masked-key-wrapper">
-            <span class="masked-key-label">SAVED API KEY</span>
-            <div id="masked-key-display" class="masked-key">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
+          <div class="masked-key-container">
+            <span class="masked-label">STORED KEY</span>
+            <div id="masked-key-display" class="masked-value">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
           </div>
-          <div class="button-group">
-            <button id="update-key-btn" class="secondary-btn">Update Key</button>
-            <button id="remove-key-btn" class="danger-btn">Remove Key</button>
+          <div class="button-row">
+            <button id="update-key-btn" class="action-btn secondary-action">
+              <span>UPDATE KEY</span>
+            </button>
+            <button id="remove-key-btn" class="action-btn danger-action">
+              <span>REMOVE KEY</span>
+            </button>
           </div>
         </div>
 
         <!-- State 3: Key Update -->
         <div id="key-update" style="display: none;">
-          <div class="status-indicator connected">
+          <div class="status-indicator configured">
             <span class="status-dot"></span>
-            <span>Updating Saved Key</span>
+            <span>UPDATING SAVED KEY</span>
           </div>
-          <p class="section-help">Paste your new Gemini API key to replace the currently stored one.</p>
-          <div class="input-wrapper">
+          <p class="section-help">Paste a new Gemini API key to replace your currently stored credentials.</p>
+          <div class="input-field-group">
             <label for="update-key-input" class="sr-only">New Gemini API Key</label>
             <input type="password" id="update-key-input" placeholder="Paste new Gemini API key" autocomplete="off" spellcheck="false">
           </div>
-          <div class="button-group">
-            <button id="save-update-btn" class="primary-btn">Save</button>
-            <button id="cancel-update-btn" class="secondary-btn">Cancel</button>
+          <div class="button-row">
+            <button id="save-update-btn" class="action-btn primary-action">
+              <span>SAVE NEW KEY</span>
+            </button>
+            <button id="cancel-update-btn" class="action-btn secondary-action">
+              <span>CANCEL</span>
+            </button>
           </div>
         </div>
       </section>
 
-      <!-- Section 2: Privacy -->
-      <section class="glass-card">
-        <div class="card-section-label">PRIVACY &amp; SECURITY</div>
-        <p>Xplainify operates with <strong>zero server-side backend</strong>. All API communications travel directly from your local browser instance to the Google Gemini API.</p>
-        <p>Your API key is never collected, transmitted, or logged by Xplainify.</p>
+      <hr class="rule">
+
+      <!-- Section 2: Privacy & Architecture -->
+      <section class="settings-section">
+        <div class="section-label">ARCHITECTURE &amp; PRIVACY</div>
+        <p class="info-paragraph">Xplainify has <strong>zero server-side backend</strong>. All network communications travel directly between your Chrome extension sandbox and Google's official Gemini API endpoints.</p>
+        <p class="info-paragraph">Your API key is never collected, relayed, logged, or visible to third-party scripts.</p>
       </section>
 
+      <hr class="rule">
+
       <!-- Section 3: About -->
-      <section class="glass-card about-card">
-        <div class="card-section-label">ABOUT</div>
-        <div class="about-info">
-          <p class="about-tagline"><strong>Xplainify</strong> &mdash; Clarity, in a click.</p>
-          <p class="about-version">Version 1.0.0 &bull; Manifest V3</p>
+      <section class="settings-section">
+        <div class="section-label">ABOUT</div>
+        <div class="about-block">
+          <div class="about-name"><strong>Xplainify</strong> &mdash; Understand before you read.</div>
+          <div class="about-meta">Version 1.0.0 &bull; Manifest V3</div>
         </div>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-credit">Built by Siddhesh Khankhoje</div>
+    <hr class="rule">
+
+    <!-- Footer -->
+    <footer class="settings-footer">
+      <span class="footer-credit">Built by Siddhesh Khankhoje</span>
       <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link" target="_blank" rel="noopener noreferrer">View Portfolio &nearr;</a>
     </footer>
   </div>
 
-  <!-- Remove Confirmation Dialog -->
+  <!-- Remove Confirmation Modal -->
   <div id="confirm-dialog" class="confirm-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-    <div class="confirm-content">
-      <h3 id="confirm-title">Remove API Key?</h3>
-      <p>Your Gemini API key will be deleted from Chrome local storage. You will need to re-enter a key to generate summaries or code explanations.</p>
-      <div class="button-group right-align">
-        <button id="cancel-remove-btn" class="secondary-btn">Cancel</button>
-        <button id="confirm-remove-btn" class="danger-btn">Remove</button>
+    <div class="confirm-box">
+      <div class="section-label error-label">CONFIRMATION</div>
+      <h3 id="confirm-title" class="confirm-heading">Remove Stored API Key?</h3>
+      <p class="confirm-desc">Your key will be erased from Chrome local storage. You will need to re-enter a key to generate summaries or code explanations.</p>
+      <div class="button-row right-align">
+        <button id="cancel-remove-btn" class="action-btn secondary-action">
+          <span>CANCEL</span>
+        </button>
+        <button id="confirm-remove-btn" class="action-btn danger-action">
+          <span>REMOVE</span>
+        </button>
       </div>
     </div>
   </div>

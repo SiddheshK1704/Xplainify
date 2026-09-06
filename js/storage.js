@@ -24,7 +24,47 @@ export function getApiKey() {
 
 export function removeApiKey() {
   return new Promise((resolve, reject) => {
-    chrome.storage.local.remove('gemini_api_key', () => {
+    chrome.storage.local.remove(['gemini_api_key', 'cached_gemini_model'], () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+export function getCachedModel() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(['cached_gemini_model'], (result) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(result.cached_gemini_model || null);
+      }
+    });
+  });
+}
+
+export function setCachedModel(modelName) {
+  return new Promise((resolve, reject) => {
+    const data = {
+      modelName,
+      resolvedAt: Date.now()
+    };
+    chrome.storage.local.set({ 'cached_gemini_model': data }, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+export function invalidateCachedModel() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.remove('cached_gemini_model', () => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {

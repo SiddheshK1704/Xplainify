@@ -1,5 +1,11 @@
+/**
+ * Xplainify — Main Popup Controller
+ * Coordinates editorial UI transitions, dynamic model resolution,
+ * resilient extraction pipelines, and graceful error recovery.
+ */
+
 import { getApiKey, hasApiKey, saveContextMenuCode, getContextMenuCode, clearContextMenuCode } from './js/storage.js';
-import { callGemini } from './js/api.js';
+import { callGemini, normalizeGeminiError } from './js/api.js';
 import { buildSummaryPrompt, buildCodeExplanationPrompt } from './js/prompts.js';
 import { renderResultSafe, copyToClipboard, formatLanguage } from './js/utils.js';
 
@@ -9,8 +15,10 @@ let isLoading = false;
 let detectedCodeBlocks = [];
 let currentResultText = '';
 let selectedCodeIndex = -1;
+let lastAction = null; // 'summarize' | 'explain' | 'explain-selected'
+let lastCodeToExplain = null;
 
-// Elements
+// DOM View Registry
 const views = {
   main: document.getElementById('main-view'),
   setup: document.getElementById('setup-view'),
@@ -20,13 +28,18 @@ const views = {
   error: document.getElementById('error-view')
 };
 
+// UI Elements
 const statusIndicator = document.getElementById('status-indicator');
 const summarizeBtn = document.getElementById('summarize-btn');
 const explainBtn = document.getElementById('explain-btn');
+const explainCard = document.getElementById('explain-card');
+const codeMeta = document.getElementById('code-meta');
+const pageTitlePreview = document.getElementById('page-title-preview');
+const pageDomain = document.getElementById('page-domain');
 const settingsBtn = document.getElementById('settings-btn');
 const portfolioLink = document.getElementById('portfolio-link');
 
-// Setup View Buttons
+// Setup View Elements
 const getKeyBtn = document.getElementById('get-key-btn');
 const openSettingsBtn = document.getElementById('open-settings-btn');
 
@@ -44,14 +57,19 @@ const explainSelectedBtn = document.getElementById('explain-selected-btn');
 const retryBtn = document.getElementById('retry-btn');
 const errorBackBtn = document.getElementById('error-back-btn');
 const errorMessage = document.getElementById('error-message');
+
+// Loading Elements
 const loadingText = document.getElementById('loading-text');
+const loadingSubtext = document.getElementById('loading-subtext');
 
 /**
- * Switch the current active view.
+ * Transitions to a named view.
  * @param {string} viewName 
  */
 function showView(viewName) {
-  Object.values(views).forEach(el => el.classList.remove('active'));
+  Object.values(views).forEach(el => {
+    if (el) el.classList.remove('active');
+  });
   if (views[viewName]) {
     views[viewName].classList.add('active');
     currentView = viewName;
@@ -59,42 +77,494 @@ function showView(viewName) {
 }
 
 /**
- * Initialize popup logic.
+ * Checks if a URL cannot be injected or read due to Chrome security policies.
+ * @param {string} url 
+ * @returns {boolean}
+ */
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  const restrictedPrefixes = [
+    'chrome://',
+    'chrome-extension://',
+    'about:',
+    'edge://',
+    'brave://',
+    'devtools://',
+    'view-source:'
+  ];
+  if (restrictedPrefixes.some(prefix => url.startsWith(prefix))) {
+    return true;
+  }
+  if (url.includes('chromewebstore.google.com') || url.includes('chrome.google.com/webstore')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Updates the current page context header (domain and page title).
+ * @param {chrome.tabs.Tab} tab 
+ */
+function updatePageContext(tab) {
+  if (!tab || !tab.url || isRestrictedUrl(tab.url)) {
+    if (pageTitlePreview) pageTitlePreview.textContent = 'Browser System Page';
+    if (pageDomain) pageDomain.textContent = 'Restricted';
+    if (summarizeBtn) summarizeBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const urlObj = new URL(tab.url);
+    const domain = urlObj.hostname.replace(/^www\./, '');
+    if (pageDomain) pageDomain.textContent = domain;
+    if (pageTitlePreview) {
+      pageTitlePreview.textContent = tab.title || domain;
+      pageTitlePreview.title = tab.title || '';
+    }
+    if (summarizeBtn) summarizeBtn.disabled = false;
+  } catch {
+    if (pageTitlePreview) pageTitlePreview.textContent = tab.title || 'Current Webpage';
+  }
+}
+
+/**
+ * Updates AI status indicator in bottom bar without exposing model strings.
+ */
+async function updateApiStatus() {
+  const hasKey = await hasApiKey();
+  const labelEl = statusIndicator ? statusIndicator.querySelector('.status-label') : null;
+
+  if (hasKey) {
+    if (statusIndicator) statusIndicator.className = 'ai-status configured';
+    if (labelEl) labelEl.textContent = 'AI READY';
+  } else {
+    if (statusIndicator) statusIndicator.className = 'ai-status not-configured';
+    if (labelEl) labelEl.textContent = 'KEY REQUIRED';
+  }
+  return hasKey;
+}
+
+/**
+ * Main Summarize Page flow with complete stage validation.
+ */
+async function handleSummarize() {
+  if (isLoading) return;
+
+  const hasKey = await hasApiKey();
+  if (!hasKey) {
+    showView('setup');
+    return;
+  }
+
+  lastAction = 'summarize';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      throw new Error('Unable to identify active browser tab. Please reload the page.');
+    }
+
+    if (isRestrictedUrl(tab.url)) {
+      throw new Error('Xplainify cannot read internal browser or extension store pages. Navigate to a regular web article or documentation page.');
+    }
+
+    // Set loading state
+    isLoading = true;
+    if (loadingText) loadingText.textContent = 'SUMMARIZING';
+    if (loadingSubtext) loadingSubtext.textContent = 'FINDING THE SIGNAL';
+    showView('loading');
+
+    // Extract content via robust in-memory script execution
+    const executionResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: runPageExtraction
+    });
+
+    if (!executionResults || !executionResults[0] || !executionResults[0].result) {
+      throw new Error('Could not extract text from this webpage. The page may still be loading or protected.');
+    }
+
+    const extraction = executionResults[0].result;
+    if (extraction.error || !extraction.content || extraction.content.length < 30) {
+      throw new Error(extraction.error || 'This page does not contain enough readable article text to summarize.');
+    }
+
+    const apiKey = await getApiKey();
+    const pageContent = `Title: ${extraction.title}\n\n${extraction.content}`;
+    const prompt = buildSummaryPrompt(pageContent);
+
+    const summary = await callGemini(apiKey, prompt);
+
+    currentResultText = summary;
+    renderResultSafe(resultContent, summary);
+    showView('result');
+
+  } catch (err) {
+    console.error('Summarize pipeline notice:', err.message || err);
+    if (errorMessage) {
+      errorMessage.textContent = err.message || 'We were unable to summarize this webpage. Please try again.';
+    }
+    showView('error');
+  } finally {
+    isLoading = false;
+  }
+}
+
+/**
+ * Inline extraction function executed safely in page context.
+ */
+function runPageExtraction() {
+  try {
+    const title = document.title ? document.title.trim() : '';
+    const selectors = [
+      'article',
+      '[role="main"]',
+      'main',
+      '.theme-doc-markdown',
+      '.docs-content',
+      '.documentation',
+      '.post-content',
+      '.article-content',
+      '.entry-content',
+      '.markdown-body',
+      '#content',
+      '#main-content',
+      '.content'
+    ];
+
+    let mainContent = null;
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el && el.textContent && el.textContent.trim().length > 100) {
+        mainContent = el;
+        break;
+      }
+    }
+
+    if (!mainContent) mainContent = document.body;
+    if (!mainContent) return { title, content: '', error: 'Page has no body content.' };
+
+    const clone = mainContent.cloneNode(true);
+    const noise = clone.querySelectorAll(
+      'script, style, noscript, iframe, svg, canvas, nav, footer, header, aside, ' +
+      '[role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"], ' +
+      '.sidebar, .nav, .navbar, .menu, .footer, .header, .ad, .ads, .advertisement, ' +
+      '.social-share, .cookie-banner, .consent-banner, .popup, .modal, .dialog, form, .comment-section, .comments'
+    );
+    noise.forEach(el => el.remove());
+
+    let text = clone.textContent || '';
+    text = text.replace(/\s*\n\s*/g, '\n').replace(/[ \t]+/g, ' ').trim();
+
+    if (!text || text.length < 40) {
+      return { title, content: '', error: 'This page contains minimal or no readable article text.' };
+    }
+
+    const maxLength = 25000;
+    if (text.length > maxLength) {
+      let truncateAt = text.lastIndexOf('.', maxLength);
+      if (truncateAt === -1 || truncateAt < maxLength - 2000) {
+        truncateAt = text.lastIndexOf('\n', maxLength);
+      }
+      if (truncateAt === -1) truncateAt = maxLength;
+      text = text.substring(0, truncateAt) + '\n\n[Content truncated for length]';
+    }
+
+    return { title, content: text };
+  } catch (e) {
+    return { title: document.title || '', content: '', error: e.toString() };
+  }
+}
+
+/**
+ * Handle Code Detection on active tab.
+ */
+async function handleCodeDetection(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: runCodeDetection
+    });
+
+    if (results && results[0] && Array.isArray(results[0].result) && results[0].result.length > 0) {
+      detectedCodeBlocks = results[0].result;
+      if (explainCard) explainCard.style.display = 'block';
+
+      if (codeMeta) {
+        const first = detectedCodeBlocks[0];
+        const lang = formatLanguage ? formatLanguage(first.language) : (first.language || 'Code');
+        const count = detectedCodeBlocks.length;
+        codeMeta.textContent = count === 1 
+          ? `${lang} · ${first.lineCount} lines`
+          : `${lang} · ${first.lineCount} lines (${count} snippets detected)`;
+      }
+    } else {
+      if (explainCard) explainCard.style.display = 'none';
+    }
+  } catch (err) {
+    // Non-fatal, page might not allow script execution
+    if (explainCard) explainCard.style.display = 'none';
+  }
+}
+
+/**
+ * Inline code detector executed in page context.
+ */
+function runCodeDetection() {
+  try {
+    const selectors = 'pre code, pre.highlight, .highlight pre, .code-block, [class*="language-"]';
+    let elements = Array.from(document.querySelectorAll(selectors));
+    
+    const standalonePres = document.querySelectorAll('pre');
+    standalonePres.forEach(pre => {
+      if (!pre.querySelector('code') && !elements.includes(pre)) {
+        if ((pre.textContent || '').split('\n').length > 1) {
+          elements.push(pre);
+        }
+      }
+    });
+
+    const blocks = [];
+    const seen = new Set();
+    const processedParents = new Set();
+
+    elements.forEach((el, index) => {
+      if (el.tagName && el.tagName.toLowerCase() === 'code' && el.parentElement && el.parentElement.tagName.toLowerCase() === 'pre') {
+        if (processedParents.has(el.parentElement)) return;
+        processedParents.add(el.parentElement);
+      }
+
+      const text = (el.textContent || '').trim();
+      const lines = text.split(/\r\n|\r|\n/);
+      if (lines.length < 3 || text.length < 50) return;
+
+      if (seen.has(text)) return;
+      seen.add(text);
+
+      let language = 'unknown';
+      const classes = Array.from(el.classList).concat(el.parentElement ? Array.from(el.parentElement.classList) : []);
+      for (const cls of classes) {
+        if (cls.startsWith('language-') || cls.startsWith('lang-')) {
+          language = cls.replace(/^language-|^lang-/, '');
+          break;
+        }
+        const known = ['python', 'javascript', 'typescript', 'js', 'ts', 'html', 'css', 'java', 'cpp', 'c', 'csharp', 'go', 'rust', 'php', 'sql', 'bash', 'shell', 'json', 'yaml', 'ruby', 'swift', 'kotlin'];
+        if (known.includes(cls.toLowerCase())) {
+          language = cls.toLowerCase();
+          break;
+        }
+      }
+
+      blocks.push({
+        code: text.substring(0, 10000),
+        language,
+        lineCount: lines.length,
+        index
+      });
+    });
+
+    return blocks;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Routes to single code explanation or snippet selection list.
+ */
+function handleExplainCode() {
+  if (detectedCodeBlocks.length === 0) return;
+
+  if (detectedCodeBlocks.length === 1) {
+    const block = detectedCodeBlocks[0];
+    lastAction = 'explain';
+    lastCodeToExplain = { code: block.code, language: block.language };
+    explainProvidedCode(block.code, block.language);
+  } else {
+    // Show selection list
+    renderCodeSelectionList();
+    showView('code-select');
+  }
+}
+
+/**
+ * Renders multiple detected code snippets for user selection.
+ */
+function renderCodeSelectionList() {
+  if (!codeList) return;
+  codeList.replaceChildren();
+  selectedCodeIndex = -1;
+  if (explainSelectedBtn) explainSelectedBtn.disabled = true;
+
+  detectedCodeBlocks.forEach((block, index) => {
+    const item = document.createElement('div');
+    item.className = 'code-card';
+    item.dataset.index = index;
+
+    const header = document.createElement('div');
+    header.className = 'code-card-header';
+
+    const langSpan = document.createElement('span');
+    langSpan.className = 'code-card-lang';
+    langSpan.textContent = formatLanguage ? formatLanguage(block.language) : (block.language || 'Code');
+
+    const linesSpan = document.createElement('span');
+    linesSpan.className = 'code-card-lines';
+    linesSpan.textContent = `${block.lineCount} lines`;
+
+    header.appendChild(langSpan);
+    header.appendChild(linesSpan);
+
+    const preview = document.createElement('div');
+    preview.className = 'code-card-preview';
+    preview.textContent = block.code;
+
+    item.appendChild(header);
+    item.appendChild(preview);
+
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.code-card').forEach(c => c.classList.remove('selected'));
+      item.classList.add('selected');
+      selectedCodeIndex = index;
+      if (explainSelectedBtn) explainSelectedBtn.disabled = false;
+    });
+
+    codeList.appendChild(item);
+  });
+}
+
+/**
+ * Explains snippet selected from the list.
+ */
+async function handleExplainSelectedCode() {
+  if (selectedCodeIndex < 0 || selectedCodeIndex >= detectedCodeBlocks.length) return;
+  const block = detectedCodeBlocks[selectedCodeIndex];
+  lastAction = 'explain-selected';
+  lastCodeToExplain = { code: block.code, language: block.language };
+  await explainProvidedCode(block.code, block.language);
+}
+
+/**
+ * Explains an arbitrary code snippet.
+ */
+async function explainProvidedCode(codeString, language = '') {
+  if (isLoading) return;
+
+  const hasKey = await hasApiKey();
+  if (!hasKey) {
+    showView('setup');
+    return;
+  }
+
+  try {
+    isLoading = true;
+    if (loadingText) loadingText.textContent = 'EXPLAINING CODE';
+    if (loadingSubtext) loadingSubtext.textContent = 'TRACING THE LOGIC';
+    showView('loading');
+
+    const apiKey = await getApiKey();
+    const prompt = buildCodeExplanationPrompt(codeString, language);
+    const explanation = await callGemini(apiKey, prompt);
+
+    currentResultText = explanation;
+    renderResultSafe(resultContent, explanation);
+    showView('result');
+
+  } catch (err) {
+    console.error('Explain pipeline notice:', err.message || err);
+    if (errorMessage) {
+      errorMessage.textContent = err.message || 'We were unable to explain this code snippet. Please try again.';
+    }
+    showView('error');
+  } finally {
+    isLoading = false;
+  }
+}
+
+/**
+ * Handles copy-to-clipboard in Result view.
+ */
+async function handleCopy() {
+  if (!currentResultText) return;
+  try {
+    const success = copyToClipboard 
+      ? await copyToClipboard(currentResultText)
+      : await navigator.clipboard.writeText(currentResultText).then(() => true).catch(() => false);
+
+    if (!success) return;
+
+    const label = copyBtn.querySelector('.copy-btn-label') || copyBtn;
+    const original = label.textContent;
+    label.textContent = '✓ COPIED';
+    copyBtn.classList.add('success');
+
+    setTimeout(() => {
+      label.textContent = original;
+      copyBtn.classList.remove('success');
+    }, 1800);
+  } catch {
+    // Ignore clipboard error
+  }
+}
+
+/**
+ * Handles retry button click from error view.
+ */
+function handleRetry() {
+  if (lastAction === 'summarize') {
+    handleSummarize();
+  } else if ((lastAction === 'explain' || lastAction === 'explain-selected') && lastCodeToExplain) {
+    explainProvidedCode(lastCodeToExplain.code, lastCodeToExplain.language);
+  } else {
+    showView('main');
+  }
+}
+
+/**
+ * Initializes the popup.
  */
 async function init() {
   await updateApiStatus();
-  
-  // Set up listeners
-  summarizeBtn.addEventListener('click', handleSummarize);
-  explainBtn.addEventListener('click', handleExplainCodeView);
-  
-  settingsBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-  });
 
-  portfolioLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    chrome.tabs.create({ url: 'https://siddheshk17-portfolio.vercel.app/' });
-  });
+  // Attach event listeners
+  if (summarizeBtn) summarizeBtn.addEventListener('click', handleSummarize);
+  if (explainBtn) explainBtn.addEventListener('click', handleExplainCode);
 
-  getKeyBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://aistudio.google.com/app/api-keys' });
-  });
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+    });
+  }
 
-  openSettingsBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-  });
+  if (portfolioLink) {
+    portfolioLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: 'https://siddheshk17-portfolio.vercel.app/' });
+    });
+  }
 
-  resultBackBtn.addEventListener('click', () => showView('main'));
-  copyBtn.addEventListener('click', handleCopy);
+  if (getKeyBtn) {
+    getKeyBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://aistudio.google.com/app/api-keys' });
+    });
+  }
 
-  codeSelectBackBtn.addEventListener('click', () => showView('main'));
-  explainSelectedBtn.addEventListener('click', handleExplainSelectedCode);
+  if (openSettingsBtn) {
+    openSettingsBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+    });
+  }
 
-  retryBtn.addEventListener('click', () => showView('main'));
-  errorBackBtn.addEventListener('click', () => showView('main'));
+  if (resultBackBtn) resultBackBtn.addEventListener('click', () => showView('main'));
+  if (copyBtn) copyBtn.addEventListener('click', handleCopy);
 
-  // Check for active tab to detect code blocks and show page context
+  if (codeSelectBackBtn) codeSelectBackBtn.addEventListener('click', () => showView('main'));
+  if (explainSelectedBtn) explainSelectedBtn.addEventListener('click', handleExplainSelectedCode);
+
+  if (retryBtn) retryBtn.addEventListener('click', handleRetry);
+  if (errorBackBtn) errorBackBtn.addEventListener('click', () => showView('main'));
+
+  // Active tab context & code detection
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
@@ -104,355 +574,21 @@ async function init() {
       }
     }
   } catch (err) {
-    console.warn("Failed to query tab on init", err);
+    console.warn('Initial tab query notice:', err);
   }
 
-  // Check if opened via Context Menu
-  const contextMenuCode = await getContextMenuCode();
-  if (contextMenuCode) {
-    await clearContextMenuCode();
-    chrome.runtime.sendMessage({ type: 'clear-badge' });
-    await explainProvidedCode(contextMenuCode);
-  }
-}
-
-/**
- * Updates the current page context (domain and title preview).
- */
-function updatePageContext(tab) {
-  const pageContextEl = document.getElementById('page-context');
-  const pageDomainEl = document.getElementById('page-domain');
-  const pageTitleEl = document.getElementById('page-title-preview');
-  
-  if (!tab || !tab.url || isRestrictedUrl(tab.url)) {
-    if (pageContextEl) pageContextEl.style.display = 'none';
-    if (pageTitleEl) pageTitleEl.style.display = 'none';
-    return;
-  }
-
+  // Check if opened via Context Menu (selection)
   try {
-    const urlObj = new URL(tab.url);
-    const domain = urlObj.hostname.replace(/^www\./, '');
-    if (pageDomainEl && domain) {
-      pageDomainEl.textContent = domain;
-      if (pageContextEl) pageContextEl.style.display = 'flex';
-    }
-    if (pageTitleEl && tab.title) {
-      pageTitleEl.textContent = tab.title;
-      pageTitleEl.title = tab.title;
-      pageTitleEl.style.display = 'block';
-    }
-  } catch (e) {
-    // Ignore URL parse errors
-  }
-}
-
-/**
- * Check if the URL is restricted and cannot be injected.
- */
-function isRestrictedUrl(url) {
-  if (!url) return true;
-  const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'about:', 'edge://', 'brave://'];
-  return restrictedPrefixes.some(prefix => url.startsWith(prefix));
-}
-
-/**
- * Updates the API status indicator based on key presence.
- */
-async function updateApiStatus() {
-  const hasKey = await hasApiKey();
-  if (hasKey) {
-    statusIndicator.textContent = 'Ready';
-    statusIndicator.className = 'status-value configured';
-  } else {
-    statusIndicator.textContent = 'Not configured';
-    statusIndicator.className = 'status-value not-configured';
-  }
-  return hasKey;
-}
-
-/**
- * Handle Summarize Page action.
- */
-async function handleSummarize() {
-  if (isLoading) return;
-  const hasKey = await hasApiKey();
-  if (!hasKey) {
-    showView('setup');
-    return;
-  }
-
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) throw new Error("Could not find active tab.");
-    
-    if (isRestrictedUrl(tab.url)) {
-      throw new Error("Cannot summarize restricted browser pages.");
-    }
-
-    isLoading = true;
-    loadingText.textContent = 'Summarizing';
-    const subtextEl = document.getElementById('loading-subtext');
-    if (subtextEl) subtextEl.textContent = 'Finding the signal';
-    showView('loading');
-
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        // Inline content extraction function
-        try {
-          const title = document.title || "";
-          let mainNode = document.querySelector('article') || 
-                         document.querySelector('[role="main"]') || 
-                         document.querySelector('main') || 
-                         document.querySelector('.post-content') || 
-                         document.querySelector('.article-content') || 
-                         document.querySelector('.markdown-body') || 
-                         document.body;
-                         
-          if (!mainNode) return { title, content: "" };
-
-          const clone = mainNode.cloneNode(true);
-          const noiseSelectors = [
-            'script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header', 
-            'aside', '.sidebar', '.ad', '.ads', '.cookie-banner', '[role="navigation"]'
-          ];
-          
-          noiseSelectors.forEach(selector => {
-            clone.querySelectorAll(selector).forEach(el => el.remove());
-          });
-
-          let textContent = clone.textContent || "";
-          textContent = textContent.replace(/\s+/g, ' ').trim();
-          
-          // Truncate to avoid massive payloads
-          if (textContent.length > 25000) {
-            textContent = textContent.substring(0, 25000) + '...';
-          }
-          
-          return { title, content: textContent };
-        } catch (e) {
-          return { title: document.title, content: "", error: e.toString() };
-        }
-      }
-    });
-
-    if (result.error || !result.content) {
-      throw new Error(result.error || "Could not extract content from the page.");
-    }
-
-    loadingText.textContent = 'Summarizing';
-    if (subtextEl) subtextEl.textContent = 'Finding the signal';
-    
-    const apiKey = await getApiKey();
-    const pageContent = `Page Title: ${result.title}\n\n${result.content}`;
-    const prompt = buildSummaryPrompt(pageContent);
-    const summary = await callGemini(apiKey, prompt);
-    
-    currentResultText = summary;
-    renderResultSafe(resultContent, summary);
-    showView('result');
-
-  } catch (err) {
-    console.error("Summarize error:", err);
-    errorMessage.textContent = err.message || "An unexpected error occurred.";
-    showView('error');
-  } finally {
-    isLoading = false;
-  }
-}
-
-/**
- * Handle Explain Code view transition.
- */
-function handleExplainCodeView() {
-  if (detectedCodeBlocks.length === 0) return;
-  
-  codeList.replaceChildren();
-  selectedCodeIndex = -1;
-  explainSelectedBtn.disabled = true;
-
-  detectedCodeBlocks.forEach((block, index) => {
-    const card = document.createElement('div');
-    card.className = 'code-card';
-    card.dataset.index = index;
-    
-    const header = document.createElement('div');
-    header.className = 'code-card-header';
-    
-    const langSpan = document.createElement('span');
-    langSpan.className = 'code-card-lang';
-    langSpan.textContent = formatLanguage ? formatLanguage(block.language) : block.language || 'Code';
-    
-    const linesSpan = document.createElement('span');
-    linesSpan.className = 'code-card-lines';
-    linesSpan.textContent = `${block.lineCount} lines`;
-    
-    header.appendChild(langSpan);
-    header.appendChild(linesSpan);
-    
-    const preview = document.createElement('div');
-    preview.className = 'code-card-preview';
-    preview.textContent = block.code;
-    
-    card.appendChild(header);
-    card.appendChild(preview);
-    
-    card.addEventListener('click', () => {
-      document.querySelectorAll('.code-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedCodeIndex = index;
-      explainSelectedBtn.disabled = false;
-    });
-
-    codeList.appendChild(card);
-  });
-
-  showView('code-select');
-}
-
-/**
- * Explains the selected code block.
- */
-async function handleExplainSelectedCode() {
-  if (selectedCodeIndex === -1 || selectedCodeIndex >= detectedCodeBlocks.length) return;
-  
-  const block = detectedCodeBlocks[selectedCodeIndex];
-  await explainProvidedCode(block.code, block.language);
-}
-
-/**
- * Explains arbitrary provided code string (from selection or context menu).
- */
-async function explainProvidedCode(codeString, language = '') {
-  if (isLoading) return;
-  const hasKey = await hasApiKey();
-  if (!hasKey) {
-    showView('setup');
-    return;
-  }
-
-  try {
-    isLoading = true;
-    loadingText.textContent = 'Explaining Code';
-    const subtextEl = document.getElementById('loading-subtext');
-    if (subtextEl) subtextEl.textContent = 'Tracing the logic';
-    showView('loading');
-
-    const apiKey = await getApiKey();
-    const prompt = buildCodeExplanationPrompt(codeString, language);
-    const explanation = await callGemini(apiKey, prompt);
-    
-    currentResultText = explanation;
-    renderResultSafe(resultContent, explanation);
-    showView('result');
-  } catch (err) {
-    console.error("Explain error:", err);
-    errorMessage.textContent = err.message || "An unexpected error occurred.";
-    showView('error');
-  } finally {
-    isLoading = false;
-  }
-}
-
-/**
- * Handle Code Detection on active tab.
- */
-async function handleCodeDetection(tabId) {
-  try {
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        // Inline code detection function
-        try {
-          const codeElements = document.querySelectorAll('pre code, pre.highlight, .highlight pre, [class*="language-"]');
-          let blocks = [];
-          const seen = new Set();
-          
-          const nodes = Array.from(codeElements).concat(Array.from(document.querySelectorAll('pre')));
-          
-          nodes.forEach((node, index) => {
-            const text = node.textContent.trim();
-            if (!text || text.length < 50) return;
-            
-            const lines = text.split('\n');
-            if (lines.length < 3) return;
-
-            // Simple dedup
-            if (seen.has(text)) return;
-            seen.add(text);
-
-            // Attempt to get language from classes
-            let language = 'text';
-            const classes = Array.from(node.classList).concat(node.parentElement ? Array.from(node.parentElement.classList) : []);
-            const langClass = classes.find(c => c.startsWith('language-') || c.startsWith('lang-'));
-            if (langClass) {
-              language = langClass.replace('language-', '').replace('lang-', '');
-            }
-
-            blocks.push({
-              code: text.substring(0, 10000), // prevent huge blocks
-              language,
-              lineCount: lines.length,
-              index
-            });
-          });
-
-          return blocks;
-        } catch (e) {
-          return [];
-        }
-      }
-    });
-
-    if (result && result.length > 0) {
-      detectedCodeBlocks = result;
-      // Show the explain card
-      const explainCard = document.getElementById('explain-card');
-      if (explainCard) explainCard.style.display = 'block';
-      explainBtn.style.display = 'flex';
-      // Populate code metadata
-      const codeMeta = document.getElementById('code-meta');
-      if (codeMeta && result.length > 0) {
-        const first = result[0];
-        const lang = formatLanguage ? formatLanguage(first.language) : first.language || 'Code';
-        const totalBlocks = result.length;
-        codeMeta.textContent = totalBlocks === 1 
-          ? `${lang} · ${first.lineCount} lines`
-          : `${totalBlocks} blocks found · ${lang} + more`;
-      }
+    const contextMenuCode = await getContextMenuCode();
+    if (contextMenuCode) {
+      await clearContextMenuCode();
+      chrome.runtime.sendMessage({ type: 'clear-badge' });
+      lastAction = 'explain';
+      lastCodeToExplain = { code: contextMenuCode, language: '' };
+      await explainProvidedCode(contextMenuCode);
     }
   } catch (err) {
-    console.warn("Could not detect code blocks:", err);
-  }
-}
-
-/**
- * Copies the current result to clipboard.
- */
-async function handleCopy() {
-  if (!currentResultText) return;
-  
-  try {
-    const success = copyToClipboard 
-      ? await copyToClipboard(currentResultText)
-      : await navigator.clipboard.writeText(currentResultText).then(() => true).catch(() => false);
-    
-    if (!success) return;
-
-    const labelEl = copyBtn.querySelector('.copy-btn-label');
-    const targetEl = labelEl || copyBtn;
-    const originalText = targetEl.textContent;
-
-    targetEl.textContent = '✓ Copied';
-    copyBtn.classList.add('success');
-    
-    setTimeout(() => {
-      targetEl.textContent = originalText;
-      copyBtn.classList.remove('success');
-    }, 1800);
-  } catch (err) {
-    console.error("Copy failed:", err);
+    console.warn('Context menu check notice:', err);
   }
 }
 
