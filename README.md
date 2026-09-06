@@ -6,7 +6,7 @@ Xplainify is an editorial, high-signal Chrome extension designed for students, d
 
 ## Features
 - **Editorial Design System**: Built with strict sharp geometry (`0px` border-radius), subtle horizontal rules, and purposeful whitespace instead of card containers
-- **Modern Typography Hierarchy**: Space Grotesk (display & actions), Plus Jakarta Sans (reading & summaries), JetBrains Mono (source code & metadata)
+- **Modern Typography Hierarchy**: Plus Jakarta Sans (UI, display & body across weights 400–800), JetBrains Mono (source code & technical metadata)
 - **Dynamic Model Discovery**: Automatically queries Google's Models API to resolve the newest available stable Flash model with 24-hour local caching
 - **Self-Healing Resilience**: Automatically detects retired models (404), invalidates cache, and re-resolves models on the fly
 - **Progressive Focus Loading**: Subtle typographic scanning animation modeling information distillation

@@ -171,7 +171,9 @@ async function handleSummarize() {
     // Set loading state
     isLoading = true;
     if (loadingText) loadingText.textContent = 'SUMMARIZING';
-    if (loadingSubtext) loadingSubtext.textContent = 'FINDING THE SIGNAL';
+    if (loadingSubtext) loadingSubtext.textContent = 'EXTRACTING KEY TAKEAWAYS';
+    const inlineSkeleton = document.getElementById('inline-skeleton');
+    if (inlineSkeleton) inlineSkeleton.style.display = 'flex';
     showView('loading');
 
     // Extract content via robust in-memory script execution
@@ -185,8 +187,8 @@ async function handleSummarize() {
     }
 
     const extraction = executionResults[0].result;
-    if (extraction.error || !extraction.content || extraction.content.length < 30) {
-      throw new Error(extraction.error || 'This page does not contain enough readable article text to summarize.');
+    if (extraction.error || !extraction.content || extraction.content.length < 15) {
+      throw new Error(extraction.error || 'This page does not contain readable content to summarize.');
     }
 
     const apiKey = await getApiKey();
@@ -204,60 +206,97 @@ async function handleSummarize() {
     displayError(err);
   } finally {
     isLoading = false;
+    const inlineSkeleton = document.getElementById('inline-skeleton');
+    if (inlineSkeleton) inlineSkeleton.style.display = 'none';
   }
 }
 
 /**
- * Inline extraction function executed safely in page context.
+ * Inline universal extraction function executed safely in page context.
+ * Capable of extracting meaningful text from any internet page:
+ * articles, wikis, forums, documentation, SPAs, and blogs.
  */
 function runPageExtraction() {
   try {
     const title = document.title ? document.title.trim() : '';
+    
+    // Priority container selectors for standard and complex web layouts
     const selectors = [
       'article',
       '[role="main"]',
       'main',
-      '.theme-doc-markdown',
+      '#mw-content-text', // Wikipedia
+      '.theme-doc-markdown', // Docusaurus
       '.docs-content',
       '.documentation',
+      '.markdown-body', // GitHub
       '.post-content',
       '.article-content',
       '.entry-content',
-      '.markdown-body',
       '#content',
       '#main-content',
-      '.content'
+      '#root',
+      '#__next',
+      '#app',
+      '.content',
+      '.body',
+      '.story-body'
     ];
 
     let mainContent = null;
     for (const selector of selectors) {
       const el = document.querySelector(selector);
-      if (el && el.textContent && el.textContent.trim().length > 100) {
+      if (el && el.textContent && el.textContent.trim().length > 60) {
         mainContent = el;
         break;
       }
     }
 
     if (!mainContent) mainContent = document.body;
-    if (!mainContent) return { title, content: '', error: 'Page has no body content.' };
+    if (!mainContent) return { title, content: '', error: 'Page has no readable content.' };
 
     const clone = mainContent.cloneNode(true);
     const noise = clone.querySelectorAll(
       'script, style, noscript, iframe, svg, canvas, nav, footer, header, aside, ' +
       '[role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"], ' +
       '.sidebar, .nav, .navbar, .menu, .footer, .header, .ad, .ads, .advertisement, ' +
-      '.social-share, .cookie-banner, .consent-banner, .popup, .modal, .dialog, form, .comment-section, .comments'
+      '.social-share, .cookie-banner, .consent-banner, .popup, .modal, .dialog, form'
     );
     noise.forEach(el => el.remove());
 
     let text = clone.textContent || '';
     text = text.replace(/\s*\n\s*/g, '\n').replace(/[ \t]+/g, ' ').trim();
 
-    if (!text || text.length < 40) {
-      return { title, content: '', error: 'This page contains minimal or no readable article text.' };
+    // Universal fallback 1: If text is short, collect all paragraphs, headings, and lists
+    if (!text || text.length < 50) {
+      const parts = [];
+      const textNodes = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, pre');
+      textNodes.forEach(node => {
+        if (!node.closest('nav, footer, header, script, style, .nav, .menu, .cookie-banner, .ad')) {
+          const t = (node.textContent || '').trim();
+          if (t.length > 5) parts.push(t);
+        }
+      });
+      if (parts.length > 0) {
+        text = parts.join('\n\n').trim();
+      }
     }
 
-    const maxLength = 25000;
+    // Universal fallback 2: Body text stripping scripts and styles
+    if (!text || text.length < 20) {
+      if (document.body) {
+        const bodyClone = document.body.cloneNode(true);
+        bodyClone.querySelectorAll('script, style, noscript, nav, header, footer').forEach(n => n.remove());
+        text = (bodyClone.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+    }
+
+    if (!text || text.length < 15) {
+      return { title, content: '', error: 'This page appears to be empty or has no readable text.' };
+    }
+
+    // Smart truncation at 28,000 characters
+    const maxLength = 28000;
     if (text.length > maxLength) {
       let truncateAt = text.lastIndexOf('.', maxLength);
       if (truncateAt === -1 || truncateAt < maxLength - 2000) {

@@ -6,26 +6,25 @@
   <title>Xplainify Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-  <div class="settings-layout">
-    <!-- Header -->
-    <header class="settings-header">
-      <div class="header-brand">
-        <img src="icons/icon48.png" alt="" class="brand-icon" width="20" height="20" aria-hidden="true">
+  <div class="settings-container">
+    <!-- Header Panel -->
+    <header class="header-panel">
+      <div class="hero-brand">
+        <img src="icons/icon48.png" alt="" class="brand-icon" width="22" height="22" aria-hidden="true">
         <span class="brand-wordmark">XPLAINIFY</span>
       </div>
       <h1 class="settings-title">Settings</h1>
       <p class="settings-subtitle">Manage your local Gemini API configuration and privacy preferences.</p>
     </header>
 
-    <hr class="rule">
-
-    <main class="settings-main">
+    <!-- Main Panel -->
+    <main class="main-panel">
       <!-- Section 1: Gemini API Key Configuration -->
-      <section class="settings-section">
+      <section class="editorial-section">
         <div class="section-label">AI ENGINE CONFIGURATION</div>
         <h2 class="section-title">Google Gemini Key</h2>
         
@@ -94,19 +93,15 @@
         </div>
       </section>
 
-      <hr class="rule">
-
-      <!-- Section 2: Privacy & Architecture -->
-      <section class="settings-section">
+      <!-- Section 2: Architecture & Privacy -->
+      <section class="editorial-section section-spaced">
         <div class="section-label">ARCHITECTURE &amp; PRIVACY</div>
         <p class="info-paragraph">Xplainify has <strong>zero server-side backend</strong>. All network communications travel directly between your Chrome extension sandbox and Google's official Gemini API endpoints.</p>
         <p class="info-paragraph">Your API key is never collected, relayed, logged, or visible to third-party scripts.</p>
       </section>
 
-      <hr class="rule">
-
       <!-- Section 3: About -->
-      <section class="settings-section">
+      <section class="editorial-section section-spaced">
         <div class="section-label">ABOUT</div>
         <div class="about-block">
           <div class="about-name"><strong>Xplainify</strong> &mdash; Understand before you read.</div>
@@ -115,12 +110,12 @@
       </section>
     </main>
 
-    <hr class="rule">
-
-    <!-- Footer -->
-    <footer class="settings-footer">
-      <span class="footer-credit">Built by Siddhesh Khankhoje</span>
-      <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link" target="_blank" rel="noopener noreferrer">View Portfolio &nearr;</a>
+    <!-- Footer Panel -->
+    <footer class="footer-panel">
+      <div class="settings-footer">
+        <span class="footer-credit">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
+        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link" target="_blank" rel="noopener noreferrer">View Portfolio &nearr;</a>
+      </div>
     </footer>
   </div>
 
