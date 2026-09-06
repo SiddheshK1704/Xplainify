@@ -94,11 +94,12 @@ async function init() {
   retryBtn.addEventListener('click', () => showView('main'));
   errorBackBtn.addEventListener('click', () => showView('main'));
 
-  // Check for active tab to detect code blocks
+  // Check for active tab to detect code blocks and show page context
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.id) {
-      if (!isRestrictedUrl(tab.url)) {
+    if (tab) {
+      updatePageContext(tab);
+      if (tab.id && !isRestrictedUrl(tab.url)) {
         await handleCodeDetection(tab.id);
       }
     }
@@ -112,6 +113,37 @@ async function init() {
     await clearContextMenuCode();
     chrome.runtime.sendMessage({ type: 'clear-badge' });
     await explainProvidedCode(contextMenuCode);
+  }
+}
+
+/**
+ * Updates the current page context (domain and title preview).
+ */
+function updatePageContext(tab) {
+  const pageContextEl = document.getElementById('page-context');
+  const pageDomainEl = document.getElementById('page-domain');
+  const pageTitleEl = document.getElementById('page-title-preview');
+  
+  if (!tab || !tab.url || isRestrictedUrl(tab.url)) {
+    if (pageContextEl) pageContextEl.style.display = 'none';
+    if (pageTitleEl) pageTitleEl.style.display = 'none';
+    return;
+  }
+
+  try {
+    const urlObj = new URL(tab.url);
+    const domain = urlObj.hostname.replace(/^www\./, '');
+    if (pageDomainEl && domain) {
+      pageDomainEl.textContent = domain;
+      if (pageContextEl) pageContextEl.style.display = 'flex';
+    }
+    if (pageTitleEl && tab.title) {
+      pageTitleEl.textContent = tab.title;
+      pageTitleEl.title = tab.title;
+      pageTitleEl.style.display = 'block';
+    }
+  } catch (e) {
+    // Ignore URL parse errors
   }
 }
 
@@ -160,6 +192,8 @@ async function handleSummarize() {
 
     isLoading = true;
     loadingText.textContent = 'Analyzing page…';
+    const subtextEl = document.getElementById('loading-subtext');
+    if (subtextEl) subtextEl.textContent = 'Extracting the important ideas…';
     showView('loading');
 
     const [{ result }] = await chrome.scripting.executeScript({
@@ -208,6 +242,7 @@ async function handleSummarize() {
     }
 
     loadingText.textContent = 'Generating summary…';
+    if (subtextEl) subtextEl.textContent = 'Structuring key takeaways…';
     
     const apiKey = await getApiKey();
     const pageContent = `Page Title: ${result.title}\n\n${result.content}`;
@@ -300,6 +335,8 @@ async function explainProvidedCode(codeString, language = '') {
   try {
     isLoading = true;
     loadingText.textContent = 'Understanding code…';
+    const subtextEl = document.getElementById('loading-subtext');
+    if (subtextEl) subtextEl.textContent = 'Tracing the logic…';
     showView('loading');
 
     const apiKey = await getApiKey();
