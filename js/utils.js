@@ -26,6 +26,8 @@ export function sanitize(text) {
  * @param {string} text 
  */
 export function renderResultSafe(container, text) {
+  if (!container) return;
+
   while (container.firstChild) {
     container.removeChild(container.firstChild);
   }

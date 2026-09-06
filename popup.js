@@ -202,7 +202,7 @@ async function handleSummarize() {
     showView('result');
 
   } catch (err) {
-    console.error('Summarize pipeline notice:', err.message || err);
+    console.warn('Summarize pipeline notice:', err.message || err);
     displayError(err);
   } finally {
     isLoading = false;
@@ -409,12 +409,13 @@ function runCodeDetection() {
  * Routes to single code explanation or snippet selection list.
  */
 function handleExplainCode() {
-  if (detectedCodeBlocks.length === 0) return;
+  if (!detectedCodeBlocks || detectedCodeBlocks.length === 0) return;
 
   if (detectedCodeBlocks.length === 1) {
     const block = detectedCodeBlocks[0];
+    if (!block || !block.code) return;
     lastAction = 'explain';
-    lastCodeToExplain = { code: block.code, language: block.language };
+    lastCodeToExplain = { code: block.code, language: block.language || '' };
     explainProvidedCode(block.code, block.language);
   } else {
     // Show selection list
@@ -475,8 +476,9 @@ function renderCodeSelectionList() {
 async function handleExplainSelectedCode() {
   if (selectedCodeIndex < 0 || selectedCodeIndex >= detectedCodeBlocks.length) return;
   const block = detectedCodeBlocks[selectedCodeIndex];
+  if (!block || !block.code) return;
   lastAction = 'explain-selected';
-  lastCodeToExplain = { code: block.code, language: block.language };
+  lastCodeToExplain = { code: block.code, language: block.language || '' };
   await explainProvidedCode(block.code, block.language);
 }
 
@@ -492,6 +494,11 @@ async function explainProvidedCode(codeString, language = '') {
     return;
   }
 
+  if (!codeString || typeof codeString !== 'string' || codeString.trim().length === 0) {
+    displayError(new Error('No code snippet was detected or selected to explain.'));
+    return;
+  }
+
   try {
     isLoading = true;
     if (loadingText) loadingText.textContent = 'EXPLAINING CODE';
@@ -499,6 +506,11 @@ async function explainProvidedCode(codeString, language = '') {
     showView('loading');
 
     const apiKey = await getApiKey();
+    if (!apiKey) {
+      showView('setup');
+      return;
+    }
+
     const prompt = buildCodeExplanationPrompt(codeString, language);
     const explanation = await callGemini(apiKey, prompt);
 
@@ -507,7 +519,7 @@ async function explainProvidedCode(codeString, language = '') {
     showView('result');
 
   } catch (err) {
-    console.error('Explain pipeline notice:', err.message || err);
+    console.warn('Explain pipeline notice:', err.message || err);
     displayError(err);
   } finally {
     isLoading = false;

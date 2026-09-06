@@ -163,7 +163,9 @@ body {
 }
 
 .hero-brand {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .brand-wordmark {
@@ -172,8 +174,73 @@ body {
   font-weight: 800;
   letter-spacing: 0.14em;
   line-height: 1;
-  color: var(--text-primary);
   text-transform: uppercase;
+  display: inline-block;
+  cursor: default;
+  user-select: none;
+  background: linear-gradient(
+    115deg,
+    var(--text-primary) 0%,
+    var(--text-primary) 38%,
+    var(--accent-light) 50%,
+    var(--accent-blue) 56%,
+    var(--text-primary) 68%,
+    var(--text-primary) 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wordmarkSheen 7.5s infinite cubic-bezier(0.16, 1, 0.3, 1),
+             wordmarkEntry 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: letter-spacing 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              filter 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: letter-spacing, filter;
+}
+
+.brand-wordmark:hover {
+  letter-spacing: 0.17em;
+  filter: drop-shadow(0 0 10px rgba(66, 116, 217, 0.35));
+}
+
+.brand-dot {
+  color: var(--accent-blue);
+  -webkit-text-fill-color: var(--accent-blue);
+  display: inline-block;
+  margin-left: 1px;
+  animation: dotGlow 2.5s infinite ease-in-out;
+}
+
+@keyframes wordmarkEntry {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+    letter-spacing: 0.22em;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.14em;
+  }
+}
+
+@keyframes wordmarkSheen {
+  0%, 65% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+
+@keyframes dotGlow {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px rgba(66, 116, 217, 0.7));
+  }
 }
 
 .brand-tagline {
@@ -364,14 +431,14 @@ body {
 
 .text-link-btn:hover .btn-text,
 .text-link-btn:focus-visible .btn-text {
-  transform: translateX(3px);
+  transform: translateX(1.5px);
   color: var(--text-primary);
   transition-duration: 180ms;
 }
 
 .text-link-btn:hover .btn-arrow,
 .text-link-btn:focus-visible .btn-arrow {
-  transform: translateX(5px);
+  transform: translateX(2.5px);
   color: var(--accent-blue);
   transition-duration: 180ms;
 }
@@ -467,14 +534,14 @@ body {
 
 .author-link:hover .link-text,
 .author-link:focus-visible .link-text {
-  transform: translateX(2px);
+  transform: translateX(1.5px);
   color: var(--text-primary);
   transition-duration: 180ms;
 }
 
 .author-link:hover .link-arrow,
 .author-link:focus-visible .link-arrow {
-  transform: translate(2px, -2px);
+  transform: translate(1.5px, -1.5px);
   color: var(--accent-blue);
   transition-duration: 180ms;
 }
@@ -559,13 +626,13 @@ body {
 .primary-action:focus-visible {
   background-color: var(--accent-hover);
   border-color: var(--accent-hover);
-  transform: translateY(-2px) scale(1.015);
-  box-shadow: 0 6px 20px rgba(66, 116, 217, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(66, 116, 217, 0.25);
   transition-duration: 180ms;
 }
 .primary-action:hover .btn-arrow,
 .primary-action:focus-visible .btn-arrow {
-  transform: translateX(4px);
+  transform: translateX(2.5px);
   transition-duration: 180ms;
 }
 .primary-action:hover .btn-indicator,
@@ -576,7 +643,7 @@ body {
 .primary-action:active {
   background-color: var(--accent-active);
   border-color: var(--accent-active);
-  transform: translateY(0) scale(0.99);
+  transform: translateY(0);
 }
 .primary-action:disabled {
   opacity: 0.35;
@@ -594,13 +661,13 @@ body {
   background-color: var(--bg-surface);
   border-color: var(--accent-blue);
   color: #ffffff;
-  transform: translateY(-2px) scale(1.015);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
   transition-duration: 180ms;
 }
 .secondary-action:hover .btn-arrow,
 .secondary-action:focus-visible .btn-arrow {
-  transform: translateX(4px);
+  transform: translateX(2.5px);
   color: var(--accent-blue);
   transition-duration: 180ms;
 }
@@ -611,7 +678,7 @@ body {
 }
 .secondary-action:active {
   background-color: var(--bg-elevated);
-  transform: translateY(0) scale(0.99);
+  transform: translateY(0);
 }
 
 /* ── 3. Skeleton Shimmer Loading Animation ───────────────────── */
@@ -739,7 +806,7 @@ body {
 }
 .nav-control-btn:hover .btn-arrow,
 .nav-control-btn:focus-visible .btn-arrow {
-  transform: translateX(-3px);
+  transform: translateX(-2px);
   transition-duration: 180ms;
 }
 
