@@ -1,16 +1,35 @@
+/**
+ * Xplainify — Content & Code Extraction Engine
+ * Resilient DOM traversal, intelligent container selection, aggressive noise stripping,
+ * and code block detection.
+ */
+
 export function extractPageContent() {
-  const title = document.title;
-  let mainContent = null;
+  const title = document.title ? document.title.trim() : '';
+  
   const selectors = [
     'article',
     '[role="main"]',
     'main',
-    '.post-content, .article-content, .entry-content, .content, .markdown-body'
+    '.theme-doc-markdown',
+    '.docs-content',
+    '.documentation',
+    '.post-content',
+    '.article-content',
+    '.entry-content',
+    '.markdown-body',
+    '#content',
+    '#main-content',
+    '.content'
   ];
 
+  let mainContent = null;
   for (const selector of selectors) {
-    mainContent = document.querySelector(selector);
-    if (mainContent) break;
+    const el = document.querySelector(selector);
+    if (el && el.textContent && el.textContent.trim().length > 100) {
+      mainContent = el;
+      break;
+    }
   }
 
   if (!mainContent) {
@@ -18,15 +37,19 @@ export function extractPageContent() {
   }
 
   if (!mainContent) {
-    return { title, content: '' };
+    return { title, content: '', error: 'Unable to locate readable content on this page.' };
   }
 
   const clone = mainContent.cloneNode(true);
 
+  // Aggressive noise stripping
   const elementsToRemove = clone.querySelectorAll(
-    'script, style, nav, footer, header, aside, iframe, noscript, svg, ' +
+    'script, style, noscript, iframe, svg, canvas, ' +
+    'nav, footer, header, aside, ' +
     '[role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"], ' +
-    '.sidebar, .nav, .menu, .footer, .header, .ad, .advertisement, .social-share, .cookie-banner, .popup, .modal'
+    '.sidebar, .nav, .navbar, .menu, .footer, .header, ' +
+    '.ad, .ads, .advertisement, .social-share, .cookie-banner, .consent-banner, ' +
+    '.popup, .modal, .dialog, form, .comment-section, .comments'
   );
 
   elementsToRemove.forEach(el => el.remove());
@@ -34,23 +57,24 @@ export function extractPageContent() {
   let text = clone.textContent || '';
   
   // Collapse whitespace and trim
-  text = text.replace(/\s+/g, ' ').trim();
+  text = text.replace(/\s*\n\s*/g, '\n').replace(/[ \t]+/g, ' ').trim();
 
-  // Smart truncation at 25000 characters
-  if (text.length > 25000) {
-    let truncateIndex = 25000;
-    
-    // Find the last period before 25000
-    const lastPeriod = text.lastIndexOf('.', 25000);
-    const lastNewline = text.lastIndexOf('\n', 25000);
-    
-    if (lastPeriod > -1 && lastPeriod > 10000) {
-      truncateIndex = lastPeriod + 1;
-    } else if (lastNewline > -1 && lastNewline > 10000) {
-      truncateIndex = lastNewline;
+  // Validate meaningful content
+  if (!text || text.length < 40) {
+    return { title, content: '', error: 'This page does not contain enough readable article text.' };
+  }
+
+  // Smart truncation at 25,000 characters
+  const maxLength = 25000;
+  if (text.length > maxLength) {
+    let truncateIndex = text.lastIndexOf('.', maxLength);
+    if (truncateIndex === -1 || truncateIndex < maxLength - 2000) {
+      truncateIndex = text.lastIndexOf('\n', maxLength);
     }
-    
-    text = text.substring(0, truncateIndex) + '\n[Content truncated for length]';
+    if (truncateIndex === -1) {
+      truncateIndex = maxLength;
+    }
+    text = text.substring(0, truncateIndex) + '\n\n[Content truncated for length]';
   }
 
   return { title, content: text };
@@ -58,46 +82,60 @@ export function extractPageContent() {
 
 export function detectCodeBlocks() {
   const results = [];
-  const codeElements = document.querySelectorAll('pre code, pre.highlight, .highlight pre, .code-block, [class*="language-"]');
-  const seenElements = new Set();
-
-  codeElements.forEach((el, i) => {
-    let current = el;
-    let skip = false;
-    while (current && current !== document.body) {
-      if (seenElements.has(current)) {
-        skip = true;
-        break;
+  const codeElements = Array.from(document.querySelectorAll('pre code, pre.highlight, .highlight pre, .code-block, [class*="language-"]'));
+  
+  // Also include standalone <pre> without nested <code>
+  const standalonePres = document.querySelectorAll('pre');
+  standalonePres.forEach(pre => {
+    if (!pre.querySelector('code') && !codeElements.includes(pre)) {
+      if ((pre.textContent || '').split('\n').length > 1) {
+        codeElements.push(pre);
       }
-      current = current.parentElement;
     }
-    
-    if (skip) return;
+  });
 
-    const text = el.textContent.trim();
+  const seenTexts = new Set();
+  const processedParents = new Set();
+
+  codeElements.forEach((el, index) => {
+    // Prevent nested duplication
+    if (el.tagName && el.tagName.toLowerCase() === 'code' && el.parentElement && el.parentElement.tagName.toLowerCase() === 'pre') {
+      if (processedParents.has(el.parentElement)) return;
+      processedParents.add(el.parentElement);
+    }
+
+    const text = (el.textContent || '').trim();
     const lines = text.split(/\r\n|\r|\n/);
     const lineCount = lines.length;
 
+    // Minimum meaningful code criteria: at least 3 lines and 50 characters
     if (lineCount < 3 || text.length < 50) return;
 
-    let detectedLang = '';
-    const classNames = (el.className + ' ' + (el.parentElement ? el.parentElement.className : '')).split(/\s+/);
+    // Deduplicate identical code snippets
+    if (seenTexts.has(text)) return;
+    seenTexts.add(text);
+
+    // Detect language from class names
+    let detectedLang = 'unknown';
+    const classes = Array.from(el.classList).concat(el.parentElement ? Array.from(el.parentElement.classList) : []);
     
-    for (const cls of classNames) {
-      if (cls.startsWith('language-') || cls.startsWith('lang-') || 
-          ['python', 'javascript', 'js', 'html', 'css', 'java', 'cpp', 'hljs', 'bash'].includes(cls)) {
-        detectedLang = cls;
+    for (const cls of classes) {
+      if (cls.startsWith('language-') || cls.startsWith('lang-')) {
+        detectedLang = cls.replace(/^language-|^lang-/, '');
+        break;
+      }
+      const known = ['python', 'javascript', 'typescript', 'js', 'ts', 'html', 'css', 'java', 'cpp', 'c', 'csharp', 'go', 'rust', 'php', 'sql', 'bash', 'shell', 'json', 'yaml', 'ruby', 'swift', 'kotlin'];
+      if (known.includes(cls.toLowerCase())) {
+        detectedLang = cls.toLowerCase();
         break;
       }
     }
 
-    seenElements.add(el);
-
     results.push({
-      code: text,
+      code: text.substring(0, 10000), // Protect against memory bloat
       language: detectedLang,
-      lineCount: lineCount,
-      index: i
+      lineCount,
+      index
     });
   });
 

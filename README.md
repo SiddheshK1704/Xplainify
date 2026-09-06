@@ -1,29 +1,26 @@
 # Xplainify
 
-**Clarity, in a click.**
+**Understand before you read.**
 
-Xplainify is a lightweight, AI-powered Chrome extension designed for students, developers, and anyone learning from the web. It summarizes webpages and explains code in beginner-friendly language — all powered by your own Gemini API key.
+Xplainify is an editorial, high-signal Chrome extension designed for students, developers, and people learning from the web. It clarifies complex webpages and explains code in intuitive, beginner-friendly language — powered directly by your own Google Gemini API key with zero server-side intermediaries.
 
 ## Features
-- AI-powered webpage summarization (TL;DR, Key Points, Simple Explanation)
-- Automatic code detection on webpages
-- Beginner-friendly code explanations (logic, important lines, concepts, analogies)
-- Right-click context menu to explain selected code
-- User-owned Gemini API key (no account needed, no backend)
-- Local API key storage (persists across restarts)
-- Light and dark mode support
-- Keyboard accessible
-- Privacy-focused (no tracking, no data collection)
-- Sharp architectural design with zero curved borders
-- Editorial typography (Bebas Neue wordmark, Playfair Display UI, JetBrains Mono code)
-- Progressive Focus scanning loader
+- **Editorial Design System**: Built with strict sharp geometry (`0px` border-radius), subtle horizontal rules, and purposeful whitespace instead of card containers
+- **Modern Typography Hierarchy**: Space Grotesk (display & actions), Plus Jakarta Sans (reading & summaries), JetBrains Mono (source code & metadata)
+- **Dynamic Model Discovery**: Automatically queries Google's Models API to resolve the newest available stable Flash model with 24-hour local caching
+- **Self-Healing Resilience**: Automatically detects retired models (404), invalidates cache, and re-resolves models on the fly
+- **Progressive Focus Loading**: Subtle typographic scanning animation modeling information distillation
+- **Webpage Summarization**: High-signal TL;DR, Key Points, and Plain English breakdown
+- **Automatic Code Detection**: Detects and explains code blocks (logic, important lines, concepts, analogies)
+- **Right-Click Context Menu**: Instantly explain selected code anywhere on the web
+- **Zero Backend & Local Storage**: Direct browser-to-Gemini REST requests with local API key persistence
+- **Strict Key & Prompt Security**: Prompt injection defenses, safe DOM rendering, and zero key logging
 
 ## Tech Stack
-- Chrome Extensions Manifest V3
-- HTML / CSS / Vanilla JavaScript
-- Google Gemini API (`gemini-flash-latest` with automatic `gemini-1.5-flash-latest` fallback)
-- Chrome Storage API
-- Chrome Scripting API
+- Chrome Extension Manifest V3
+- HTML / CSS / Vanilla JavaScript (zero framework bloat)
+- Google Gemini REST API (dynamic model resolution via Models API)
+- Chrome Storage & Scripting APIs
 
 ## Architecture
 
