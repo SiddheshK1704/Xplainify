@@ -7,149 +7,207 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <!-- ═══ Main View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       MAIN VIEW
+       ══════════════════════════════════════════════════ -->
   <div id="main-view" class="view active">
     <header class="popup-header">
       <div class="brand">
-        <h1 class="logo">Xplainify</h1>
+        <div class="brand-title-row">
+          <span class="brand-dot"></span>
+          <h1 class="logo">Xplainify</h1>
+        </div>
         <p class="tagline">Clarity, in a click.</p>
       </div>
-      <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <button id="settings-btn" class="icon-btn" aria-label="Open Settings" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
     </header>
 
-    <div class="actions">
-      <!-- Primary Action Card -->
-      <div class="action-card">
+    <div class="actions-stack">
+      <!-- Primary Action Card (Hero) -->
+      <section class="action-card primary-card">
         <div class="action-card-header">
-          <span class="action-card-icon">✦</span>
-          <span class="action-card-label">Understand this page</span>
+          <span class="action-card-badge">SUMMARIZE</span>
+          <span class="action-card-hint">Current page</span>
         </div>
-        <p class="action-card-description">Get the important ideas without reading everything.</p>
+        <p class="action-card-description">Extract core takeaways, TL;DR, and simplified explanations instantly.</p>
         <button id="summarize-btn" class="action-btn primary-btn">
           <span>Summarize Page</span>
-          <span class="btn-icon">→</span>
+          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
-      </div>
+      </section>
 
-      <!-- Secondary Action Card (hidden by default) -->
-      <div id="explain-card" class="action-card" style="display: none;">
+      <!-- Secondary Action Card (Conditional for Code) -->
+      <section id="explain-card" class="action-card secondary-card" style="display: none;">
         <div class="action-card-header">
-          <span class="action-card-icon">&lt;/&gt;</span>
-          <span class="action-card-label">Code detected</span>
+          <span class="action-card-badge code-badge">&lt;/&gt; CODE DETECTED</span>
+          <span id="code-meta" class="action-card-hint"></span>
         </div>
-        <div id="code-meta" class="action-card-meta"></div>
+        <p class="action-card-description">Break down code logic, step-by-step flow, and programming concepts.</p>
         <button id="explain-btn" class="action-btn secondary-btn" style="display: flex;">
           <span>Explain Code</span>
-          <span class="btn-icon">→</span>
+          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
+      </section>
+    </div>
+
+    <!-- API Status Bar -->
+    <div id="api-status" class="api-status-bar">
+      <div class="status-left">
+        <span class="status-provider">Gemini</span>
+        <span class="status-model">2.0 Flash</span>
       </div>
+      <div id="status-indicator" class="status-value not-configured">Not configured</div>
     </div>
 
-    <div id="api-status" class="api-status">
-      <span class="status-label">Gemini</span>
-      <span id="status-indicator" class="status-value"></span>
-    </div>
-
+    <!-- Footer -->
     <footer class="popup-footer">
       <div class="footer-divider"></div>
-      <p class="footer-credit">Built by Siddhesh Khankhoje</p>
-      <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link">View Portfolio ↗</a>
+      <div class="footer-content">
+        <span class="footer-credit">Built by Siddhesh Khankhoje</span>
+        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link" target="_blank" rel="noopener noreferrer">Portfolio &nearr;</a>
+      </div>
     </footer>
   </div>
 
-  <!-- ═══ Setup View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       SETUP VIEW (First-time API onboarding)
+       ══════════════════════════════════════════════════ -->
   <div id="setup-view" class="view">
-    <div class="setup-card">
-      <h2 class="setup-title">Almost ready</h2>
-      <p class="setup-subtitle">Connect Gemini to Xplainify</p>
-      <p class="setup-description">Xplainify uses your own Gemini API key to power summaries and code explanations.</p>
-      <p class="setup-privacy">Your key is stored locally in Chrome and is never sent to Xplainify servers.</p>
+    <div class="setup-container">
+      <div class="setup-header">
+        <div class="setup-pill">GETTING STARTED</div>
+        <h2 class="setup-title">Almost ready</h2>
+        <p class="setup-subtitle">Connect your free Google Gemini API key to start generating summaries and code breakdowns.</p>
+      </div>
+
+      <div class="setup-privacy-callout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Your API key is stored locally in Chrome and never sent to any third-party server.</span>
+      </div>
 
       <ol class="setup-steps">
-        <li>Open Google AI Studio</li>
-        <li>Create your API key</li>
-        <li>Copy it</li>
-        <li>Return to Xplainify Settings</li>
-        <li>Paste and save your key</li>
+        <li>
+          <span class="step-num">01</span>
+          <span class="step-text">Open <strong>Google AI Studio</strong></span>
+        </li>
+        <li>
+          <span class="step-num">02</span>
+          <span class="step-text">Create and copy your API key</span>
+        </li>
+        <li>
+          <span class="step-num">03</span>
+          <span class="step-text">Open Xplainify <strong>Settings</strong> and save it</span>
+        </li>
       </ol>
 
       <div class="setup-actions">
         <button id="get-key-btn" class="action-btn secondary-btn">
           <span>Get API Key</span>
-          <span class="btn-icon">↗</span>
+          <span class="btn-arrow" aria-hidden="true">&nearr;</span>
         </button>
         <button id="open-settings-btn" class="action-btn primary-btn">
           <span>Open Settings</span>
-          <span class="btn-icon">→</span>
+          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ═══ Loading View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       LOADING VIEW
+       ══════════════════════════════════════════════════ -->
   <div id="loading-view" class="view">
     <div class="loading-container">
-      <div class="spinner"></div>
-      <p id="loading-text">Analyzing page…</p>
-      <p class="loading-subtitle">Extracting the important ideas…</p>
+      <div class="loading-visual">
+        <div class="loading-orbit"></div>
+        <div class="loading-core"></div>
+      </div>
+      <div class="loading-content">
+        <h3 id="loading-text" class="loading-title">Analyzing page…</h3>
+        <p class="loading-subtitle">Extracting important sections and structuring insights</p>
+      </div>
     </div>
   </div>
 
-  <!-- ═══ Result View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       RESULT VIEW (Summary & Code Output)
+       ══════════════════════════════════════════════════ -->
   <div id="result-view" class="view">
-    <div class="result-header">
-      <button id="result-back-btn" class="back-btn" aria-label="Go back">
-        <span aria-hidden="true">←</span> Back
+    <div class="result-top-bar">
+      <button id="result-back-btn" class="nav-back-btn" aria-label="Back to main view">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back</span>
       </button>
-      <button id="copy-btn" class="copy-btn" aria-label="Copy result">Copy</button>
+      <button id="copy-btn" class="copy-action-btn" aria-label="Copy result text">
+        <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span class="copy-btn-label">Copy</span>
+      </button>
     </div>
-    <div id="result-content" class="result-body">
+    <div id="result-content" class="result-scroll-area">
       <!-- AI content rendered safely here -->
     </div>
   </div>
 
-  <!-- ═══ Code Select View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       CODE SELECT VIEW
+       ══════════════════════════════════════════════════ -->
   <div id="code-select-view" class="view">
-    <div class="code-select-header">
-      <button id="code-select-back-btn" class="back-btn" aria-label="Go back">
-        <span aria-hidden="true">←</span> Back
+    <div class="code-select-top-bar">
+      <button id="code-select-back-btn" class="nav-back-btn" aria-label="Back to main view">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back</span>
       </button>
-      <h2 class="code-select-title">Select code block</h2>
+      <span class="code-select-heading">SELECT SNIPPET</span>
     </div>
-    <div id="code-list" class="code-list-container">
-      <!-- Code block items injected here -->
+    <div id="code-list" class="code-list-scroll-area">
+      <!-- Detected code snippets injected dynamically -->
     </div>
-    <button id="explain-selected-btn" class="action-btn primary-btn" disabled>
-      <span>Explain Selected Code</span>
-      <span class="btn-icon">→</span>
-    </button>
+    <div class="code-select-footer">
+      <button id="explain-selected-btn" class="action-btn primary-btn" disabled>
+        <span>Explain Selected Snippet</span>
+        <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+      </button>
+    </div>
   </div>
 
-  <!-- ═══ Error View ═══ -->
+  <!-- ══════════════════════════════════════════════════
+       ERROR VIEW
+       ══════════════════════════════════════════════════ -->
   <div id="error-view" class="view">
     <div class="error-container">
-      <div class="error-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="error-icon-wrapper">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
       </div>
-      <h2 class="error-title">Something went wrong</h2>
+      <h2 class="error-title">Unable to complete request</h2>
       <p id="error-message" class="error-message">An unexpected error occurred.</p>
       <div class="error-actions">
         <button id="retry-btn" class="action-btn primary-btn">
           <span>Try Again</span>
-          <span class="btn-icon">→</span>
+          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
         <button id="error-back-btn" class="action-btn secondary-btn">
-          <span>Back</span>
-          <span class="btn-icon">←</span>
+          <span>Back to Start</span>
         </button>
       </div>
     </div>

@@ -233,7 +233,7 @@ async function handleSummarize() {
 function handleExplainCodeView() {
   if (detectedCodeBlocks.length === 0) return;
   
-  codeList.innerHTML = '';
+  codeList.replaceChildren();
   selectedCodeIndex = -1;
   explainSelectedBtn.disabled = true;
 
@@ -397,20 +397,23 @@ async function handleCopy() {
   if (!currentResultText) return;
   
   try {
-    if (copyToClipboard) {
-      await copyToClipboard(currentResultText);
-    } else {
-      await navigator.clipboard.writeText(currentResultText);
-    }
+    const success = copyToClipboard 
+      ? await copyToClipboard(currentResultText)
+      : await navigator.clipboard.writeText(currentResultText).then(() => true).catch(() => false);
     
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = '✓ Copied';
+    if (!success) return;
+
+    const labelEl = copyBtn.querySelector('.copy-btn-label');
+    const targetEl = labelEl || copyBtn;
+    const originalText = targetEl.textContent;
+
+    targetEl.textContent = '✓ Copied';
     copyBtn.classList.add('success');
     
     setTimeout(() => {
-      copyBtn.textContent = originalText;
+      targetEl.textContent = originalText;
       copyBtn.classList.remove('success');
-    }, 2000);
+    }, 1800);
   } catch (err) {
     console.error("Copy failed:", err);
   }
