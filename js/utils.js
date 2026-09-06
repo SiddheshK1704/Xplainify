@@ -123,12 +123,13 @@ export function renderResultSafe(container, text) {
       continue;
     }
 
-    // Headings (### or ## or #)
-    const headingMatch = trimmedLine.match(/^(#{1,3})\s+(.+)$/);
-    if (headingMatch) {
+    // Headings (#, ##, ###, ####, or **Bold Section Header:**)
+    const headingMatch = trimmedLine.match(/^(#{1,6})\s*(.+)$/);
+    const boldSectionMatch = !headingMatch && trimmedLine.match(/^\*\*([^*:]+)(?::)?\*\*:?$/);
+    if (headingMatch || boldSectionMatch) {
       currentList = null;
-      const headingLevel = headingMatch[1].length;
-      const headingText = headingMatch[2];
+      const headingLevel = headingMatch ? Math.min(headingMatch[1].length, 4) : 3;
+      const headingText = (headingMatch ? headingMatch[2] : boldSectionMatch[1]).replace(/\*\*|__/g, '').trim();
 
       const headingEl = document.createElement('h3');
       headingEl.className = `result-heading level-${headingLevel}`;
@@ -145,7 +146,7 @@ export function renderResultSafe(container, text) {
     }
 
     // Numbered list item: 1. or 01. or 1)
-    const numberedMatch = trimmedLine.match(/^(\d{1,2})[\.\)]\s+(.+)$/);
+    const numberedMatch = trimmedLine.match(/^(\d{1,2})[\.\)]\s*(.+)$/);
     if (numberedMatch) {
       if (!currentList || !isNumberedList) {
         currentList = document.createElement('ol');
@@ -163,8 +164,8 @@ export function renderResultSafe(container, text) {
       continue;
     }
 
-    // Bulleted list item: - or *
-    const bulletMatch = trimmedLine.match(/^[\-\*]\s+(.+)$/);
+    // Bulleted list item: -, *, •, +, –, —
+    const bulletMatch = trimmedLine.match(/^[\-\*\+\u2022\u2013\u2014]\s*(.+)$/);
     if (bulletMatch) {
       if (!currentList || isNumberedList) {
         currentList = document.createElement('ul');
@@ -214,6 +215,15 @@ export function renderResultSafe(container, text) {
     p.className = 'result-paragraph';
     parseFormattedInline(p, trimmedLine);
     container.appendChild(p);
+  }
+
+  // Flush unclosed code block if stream stopped mid-block
+  if (inCodeBlock && currentCodeContent.length > 0) {
+    const pre = document.createElement('pre');
+    const codeEl = document.createElement('code');
+    codeEl.textContent = currentCodeContent.join('\n');
+    pre.appendChild(codeEl);
+    container.appendChild(pre);
   }
 }
 

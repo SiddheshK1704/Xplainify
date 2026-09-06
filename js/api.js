@@ -12,8 +12,37 @@ const BASE_URL = 'https://generativelanguage.googleapis.com';
 const MODEL_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
-// Fallback if Models API is temporarily unreachable during first run
+// Fallbacks if Models API is temporarily unreachable during first run
+const DEFAULT_FALLBACK_SUMMARY_MODEL = 'gemini-2.0-flash-lite';
+const DEFAULT_FALLBACK_CODE_MODEL = 'gemini-1.5-flash';
 const DEFAULT_FALLBACK_MODEL = 'gemini-1.5-flash';
+
+/**
+ * Standardized Error class for Gemini API interactions.
+ */
+export class GeminiApiError extends Error {
+  constructor(message, {
+    status = null,
+    isAuth = false,
+    isTimeout = false,
+    isNetwork = false,
+    isSafety = false,
+    isEmpty = false,
+    finishReason = null,
+    apiDetail = ''
+  } = {}) {
+    super(message);
+    this.name = 'GeminiApiError';
+    this.status = status;
+    this.isAuth = isAuth;
+    this.isTimeout = isTimeout;
+    this.isNetwork = isNetwork;
+    this.isSafety = isSafety;
+    this.isEmpty = isEmpty;
+    this.finishReason = finishReason;
+    this.apiDetail = apiDetail;
+  }
+}
 
 /**
  * Fetches all models available to the provided API key, handling pagination.
@@ -23,7 +52,7 @@ const DEFAULT_FALLBACK_MODEL = 'gemini-1.5-flash';
  */
 export async function listAvailableModels(apiKey) {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    throw new Error('API key is required to query available models.');
+    throw new GeminiApiError('API key is required to query available models.', { isAuth: true, status: 401 });
   }
 
   const cleanKey = apiKey.trim();
@@ -87,12 +116,23 @@ export async function listAvailableModels(apiKey) {
 }
 
 /**
- * Filters and ranks models to deterministically select the newest, stable Flash model.
+ * Checks if a model belongs to the Flash-Lite or lightweight family.
+ */
+function isLiteModel(name) {
+  const n = (name || '').toLowerCase();
+  return n.includes('lite') || n.includes('8b');
+}
+
+/**
+ * Filters and ranks models.
+ * For summary purpose: prioritizes Flash-Lite (raw speed and low TTFT) -> Flash.
+ * For code or default: prioritizes highest version stable Flash.
  * Excludes preview, experimental, thinking, and specialized non-text models.
  * @param {Array<Object>} models 
+ * @param {string|null} purpose 'summary' | 'code' | null
  * @returns {string|null}
  */
-export function filterAndRankFlashModels(models) {
+export function filterAndRankFlashModels(models, purpose = null) {
   if (!Array.isArray(models) || models.length === 0) return null;
 
   const suitableModels = models.filter(m => {
@@ -140,11 +180,24 @@ export function filterAndRankFlashModels(models) {
     return null;
   }
 
-  // Rank by numeric version score (e.g. gemini-2.5-flash > gemini-2.0-flash > gemini-1.5-flash)
+  // Rank deterministically
   suitableModels.sort((a, b) => {
+    const isLiteA = isLiteModel(a.name);
+    const isLiteB = isLiteModel(b.name);
     const versionA = extractModelVersion(a.name);
     const versionB = extractModelVersion(b.name);
-    return versionB - versionA;
+
+    if (purpose === 'summary') {
+      // Prioritize lightweight Flash models first for maximum summarization speed
+      if (isLiteA && !isLiteB) return -1;
+      if (!isLiteA && isLiteB) return 1;
+      return versionB - versionA;
+    } else {
+      // Prioritize standard full Flash models for code reasoning or default ranking
+      if (!isLiteA && isLiteB) return -1;
+      if (isLiteA && !isLiteB) return 1;
+      return versionB - versionA;
+    }
   });
 
   return cleanModelName(suitableModels[0].name);
@@ -177,12 +230,13 @@ function cleanModelName(rawName) {
  * Uses local storage caching with a 6-hour TTL to eliminate redundant Models API calls.
  * @param {string} apiKey 
  * @param {boolean} forceRefresh 
+ * @param {string} purpose 'summary' | 'code'
  * @returns {Promise<string>}
  */
-export async function resolveBestGeminiModel(apiKey, forceRefresh = false) {
+export async function resolveBestGeminiModel(apiKey, forceRefresh = false, purpose = 'summary') {
   if (!forceRefresh) {
     try {
-      const cached = await getCachedModel();
+      const cached = await getCachedModel(purpose);
       if (cached && cached.modelName && cached.resolvedAt) {
         const age = Date.now() - cached.resolvedAt;
         if (age < MODEL_CACHE_TTL_MS) {
@@ -196,22 +250,23 @@ export async function resolveBestGeminiModel(apiKey, forceRefresh = false) {
 
   try {
     const available = await listAvailableModels(apiKey);
-    const selected = filterAndRankFlashModels(available);
+    const selected = filterAndRankFlashModels(available, purpose);
 
     if (selected) {
-      await setCachedModel(selected);
+      await setCachedModel(selected, purpose);
       return selected;
     }
   } catch (err) {
-    if (err.status === 401 || err.status === 403) {
+    if (err.status === 401 || err.status === 403 || err.isAuth) {
       throw err;
     }
     console.warn('[Xplainify][Model] Dynamic discovery notice, falling back to default:', err.message);
   }
 
-  // Fallback to default Flash model
-  await setCachedModel(DEFAULT_FALLBACK_MODEL);
-  return DEFAULT_FALLBACK_MODEL;
+  // Fallback to purpose-specific default model
+  const fallback = purpose === 'summary' ? DEFAULT_FALLBACK_SUMMARY_MODEL : DEFAULT_FALLBACK_CODE_MODEL;
+  await setCachedModel(fallback, purpose);
+  return fallback;
 }
 
 /**
@@ -243,19 +298,39 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_M
 }
 
 /**
+ * Validates whether a summary output contains the expected sections
+ * and does not terminate abruptly on a dangling heading.
+ * Supports standard TL;DR / Key Points / Explain It Simply format.
+ * @param {string} text 
+ * @returns {boolean}
+ */
+export function isSummaryComplete(text) {
+  if (!text || typeof text !== 'string') return false;
+  const upper = text.toUpperCase();
+  const hasSummary = upper.includes('TL;DR') || upper.includes('TLDR') || upper.includes('SUMMARY');
+  const hasKeyPoints = upper.includes('KEY POINTS') || upper.includes('KEY TAKEAWAYS');
+  const hasTakeaway = upper.includes('EXPLAIN IT SIMPLY') || upper.includes('TAKEAWAY') || upper.includes('ACTIONABLE');
+  const endsDangling = /###\s*[\w\s;:]+:\s*$/i.test(text.trim()) || /-\s*[\w\s]+:\s*$/i.test(text.trim());
+  return hasSummary && hasKeyPoints && hasTakeaway && !endsDangling;
+}
+
+/**
  * Primary function to call Gemini generateContent.
- * Handles self-healing retries, 404 model recovery, and timeouts.
+ * Handles self-healing retries, 404 model recovery, multi-part candidate concatenation,
+ * and completeness validation with bounded recovery.
  * Key transport uses x-goog-api-key header; never logged or passed in query strings.
  * @param {string} apiKey 
  * @param {string} prompt 
+ * @param {string} purpose 'summary' | 'code'
  * @returns {Promise<string>}
  */
-export async function callGemini(apiKey, prompt) {
+export async function callGemini(apiKey, prompt, purpose = 'summary') {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    throw new Error('Your Gemini API key is invalid or unauthorized.');
+    throw new GeminiApiError('Your Gemini API key is invalid or unauthorized.', { isAuth: true, status: 401 });
   }
 
   const cleanKey = apiKey.trim();
+  const maxOutputTokens = purpose === 'summary' ? 1400 : 1600;
   const requestBody = JSON.stringify({
     contents: [{
       parts: [{
@@ -263,7 +338,7 @@ export async function callGemini(apiKey, prompt) {
       }]
     }],
     generationConfig: {
-      maxOutputTokens: 900,
+      maxOutputTokens,
       temperature: 0.2
     }
   });
@@ -271,56 +346,76 @@ export async function callGemini(apiKey, prompt) {
   // Resolve model from local cache (or Models API if missing/expired)
   let activeModel;
   try {
-    activeModel = await resolveBestGeminiModel(cleanKey);
+    activeModel = await resolveBestGeminiModel(cleanKey, false, purpose);
   } catch (resolveErr) {
     throw normalizeGeminiError(resolveErr);
   }
 
+  let result;
   // Attempt generation with strictly bounded recovery
   try {
-    return await executeGenerateRequest(cleanKey, activeModel, requestBody);
+    result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
   } catch (firstErr) {
     // 1. If 404: model deprecated or unavailable -> invalidate cache, re-resolve once, retry once
     if (firstErr.status === 404) {
       console.warn(`[Xplainify][Model] Model "${activeModel}" returned 404. Re-resolving models and retrying once...`);
-      await invalidateCachedModel();
+      await invalidateCachedModel(purpose);
       try {
-        activeModel = await resolveBestGeminiModel(cleanKey, true);
-        return await executeGenerateRequest(cleanKey, activeModel, requestBody);
+        activeModel = await resolveBestGeminiModel(cleanKey, true, purpose);
+        result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
       } catch (retryErr) {
         throw normalizeGeminiError(retryErr);
       }
-    }
-
-    // 2. If 5xx: temporary server outage -> wait 1000ms and retry once
-    if (firstErr.status >= 500 && firstErr.status < 600) {
+    } else if (firstErr.status >= 500 && firstErr.status < 600) {
+      // 2. If 5xx: temporary server outage -> wait 1000ms and retry once
       console.warn(`[Xplainify][API] Server returned HTTP ${firstErr.status}. Retrying after 1000ms...`);
       await delay(1000);
       try {
-        return await executeGenerateRequest(cleanKey, activeModel, requestBody);
+        result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
+        console.info('[Xplainify][API] Server retry succeeded.');
       } catch (retryErr) {
+        console.error('[Xplainify][API] Server error persisted on retry:', retryErr.message || retryErr);
         throw normalizeGeminiError(retryErr);
       }
-    }
-
-    // 3. If transient network error (not timeout): wait 500ms and retry once
-    if (firstErr.isNetwork && !firstErr.isTimeout) {
+    } else if (firstErr.isNetwork && !firstErr.isTimeout) {
+      // 3. If transient network error (not timeout): wait 500ms and retry once
       console.warn('[Xplainify][API] Transient network error encountered. Retrying after 500ms...');
       await delay(500);
       try {
-        return await executeGenerateRequest(cleanKey, activeModel, requestBody);
+        result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
+        console.info('[Xplainify][API] Network retry succeeded.');
       } catch (retryErr) {
         throw normalizeGeminiError(retryErr);
       }
+    } else {
+      throw normalizeGeminiError(firstErr);
     }
-
-    // Otherwise throw normalized error (no retry for 401/403, 429, timeout, safety)
-    throw normalizeGeminiError(firstErr);
   }
+
+  // Completeness check for summaries: if finishReason is MAX_TOKENS or structure is cut off, run 1 bounded continuation
+  if (purpose === 'summary' && (result.finishReason === 'MAX_TOKENS' || !isSummaryComplete(result.text))) {
+    console.warn(`[Xplainify][API] Summary incomplete (finishReason: ${result.finishReason}). Running bounded completion...`);
+    try {
+      const continuationPrompt = `${prompt}\n\n[PREVIOUS TRUNCATED OUTPUT]:\n${result.text}\n\n[TASK]: Provide the complete missing remainder starting from where it cut off. Ensure the KEY POINTS and TAKEAWAY sections are completely concluded. Do not repeat what was already written.`;
+      const contBody = JSON.stringify({
+        contents: [{ parts: [{ text: continuationPrompt }] }],
+        generationConfig: { maxOutputTokens: 800, temperature: 0.2 }
+      });
+      const contResult = await executeGenerateRequest(cleanKey, activeModel, contBody);
+      if (contResult && contResult.text) {
+        result.text = `${result.text}\n\n${contResult.text}`.trim();
+      }
+    } catch (contErr) {
+      console.warn('[Xplainify][API] Continuation recovery notice:', contErr.message);
+    }
+  }
+
+  return result.text;
 }
 
 /**
  * Sends the POST request to generateContent with AbortController timeout and header key transport.
+ * Concatenates all candidate text parts to prevent mid-response cutoffs.
  */
 async function executeGenerateRequest(apiKey, modelName, body) {
   const endpoint = `${BASE_URL}/${API_VERSION}/models/${modelName}:generateContent`;
@@ -342,13 +437,15 @@ async function executeGenerateRequest(apiKey, modelName, body) {
         detail = errorJson.error.message || '';
       }
     } catch {}
-    const err = new Error(detail ? `HTTP ${response.status}: ${detail}` : `HTTP ${response.status}`);
-    err.status = response.status;
-    err.apiDetail = detail;
-    if (detail.toLowerCase().includes('api key') || detail.toLowerCase().includes('key not valid')) {
-      err.isAuth = true;
-    }
-    throw err;
+    const isAuth = detail.toLowerCase().includes('api key') ||
+                   detail.toLowerCase().includes('key not valid') ||
+                   response.status === 401 ||
+                   response.status === 403;
+    throw new GeminiApiError(detail ? `HTTP ${response.status}: ${detail}` : `HTTP ${response.status}`, {
+      status: response.status,
+      apiDetail: detail,
+      isAuth
+    });
   }
 
   const data = await response.json();
@@ -358,45 +455,52 @@ async function executeGenerateRequest(apiKey, modelName, body) {
     !data ||
     !data.candidates ||
     !Array.isArray(data.candidates) ||
-    data.candidates.length === 0 ||
-    !data.candidates[0].content ||
-    !data.candidates[0].content.parts ||
-    !Array.isArray(data.candidates[0].content.parts) ||
-    data.candidates[0].content.parts.length === 0 ||
-    typeof data.candidates[0].content.parts[0].text !== 'string'
+    data.candidates.length === 0
   ) {
     if (data && data.promptFeedback && data.promptFeedback.blockReason) {
-      const err = new Error('Safety block');
-      err.isSafety = true;
-      throw err;
+      throw new GeminiApiError('Content blocked by safety policy.', { isSafety: true });
     }
-    const err = new Error('Empty or unexpected response structure from Gemini.');
-    err.isEmpty = true;
-    throw err;
+    throw new GeminiApiError('Empty or unexpected response structure from Gemini.', { isEmpty: true });
   }
 
-  const resultText = data.candidates[0].content.parts[0].text.trim();
-  if (resultText.length === 0) {
-    const err = new Error('Empty response text');
-    err.isEmpty = true;
-    throw err;
+  const candidate = data.candidates[0];
+  const finishReason = candidate.finishReason || null;
+
+  if (finishReason === 'SAFETY') {
+    throw new GeminiApiError('Content blocked by safety policy.', { isSafety: true, finishReason });
   }
 
-  return resultText;
+  const parts = candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
+  // CRITICAL: Concatenate ALL text parts to avoid dropping tokens when Gemini chunks output
+  const fullText = parts
+    .filter(p => p && typeof p.text === 'string')
+    .map(p => p.text)
+    .join('');
+
+  const trimmedText = fullText.trim();
+  if (trimmedText.length === 0) {
+    throw new GeminiApiError('Empty response text from Gemini.', { isEmpty: true, finishReason });
+  }
+
+  return {
+    text: trimmedText,
+    finishReason,
+    candidate
+  };
 }
 
 /**
  * Normalizes any error into clean, user-friendly copy without leaking keys or raw stack traces.
  * @param {Error} err 
- * @returns {Error}
+ * @returns {GeminiApiError}
  */
 export function normalizeGeminiError(err) {
   if (err.isTimeout) {
-    return new Error('The request took too long. Please try again.');
+    return new GeminiApiError('The request took too long. Please try again.', { isTimeout: true });
   }
 
   if (err.isNetwork) {
-    return new Error('Unable to reach Gemini. Check your internet connection and try again.');
+    return new GeminiApiError('Unable to reach Gemini. Check your internet connection and try again.', { isNetwork: true });
   }
 
   const msg = (err.message || '').toLowerCase();
@@ -413,34 +517,31 @@ export function normalizeGeminiError(err) {
     detail.includes('key not valid') ||
     msg.includes('unauthorized')
   ) {
-    const authErr = new Error('Your Gemini API key is invalid or unauthorized.');
-    authErr.status = 401;
-    authErr.isAuth = true;
-    return authErr;
+    return new GeminiApiError('Your Gemini API key is invalid or unauthorized.', { status: 401, isAuth: true });
   }
 
   if (err.status === 404) {
-    return new Error('The requested AI model is currently unavailable. Please try again.');
+    return new GeminiApiError('The requested AI model is currently unavailable. Please try again.', { status: 404 });
   }
 
   if (err.status === 429) {
-    return new Error('Gemini is temporarily rate-limiting requests. Please try again shortly.');
+    return new GeminiApiError('Gemini is temporarily rate-limiting requests. Please try again shortly.', { status: 429 });
   }
 
   if (err.status >= 500) {
-    return new Error('Gemini is temporarily unavailable. Please try again shortly.');
+    return new GeminiApiError('Gemini is temporarily unavailable. Please try again shortly.', { status: err.status });
   }
 
   if (err.isSafety) {
-    return new Error('Content could not be processed due to safety restrictions.');
+    return new GeminiApiError('Content could not be processed due to safety restrictions.', { isSafety: true });
   }
 
   if (err.isEmpty) {
-    return new Error('Received an empty response from Gemini. Please try again.');
+    return new GeminiApiError('Received an empty response from Gemini. Please try again.', { isEmpty: true });
   }
 
   console.error('[Xplainify][API] Request notice:', err.message || err);
-  return new Error('Something went wrong while processing this page. Please try again.');
+  return new GeminiApiError('Something went wrong while processing this page. Please try again.');
 }
 
 function delay(ms) {
