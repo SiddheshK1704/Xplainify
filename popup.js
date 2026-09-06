@@ -191,9 +191,9 @@ async function handleSummarize() {
     }
 
     isLoading = true;
-    loadingText.textContent = 'Analyzing page…';
+    loadingText.textContent = 'Summarizing';
     const subtextEl = document.getElementById('loading-subtext');
-    if (subtextEl) subtextEl.textContent = 'Extracting the important ideas…';
+    if (subtextEl) subtextEl.textContent = 'Finding the signal';
     showView('loading');
 
     const [{ result }] = await chrome.scripting.executeScript({
@@ -241,8 +241,8 @@ async function handleSummarize() {
       throw new Error(result.error || "Could not extract content from the page.");
     }
 
-    loadingText.textContent = 'Generating summary…';
-    if (subtextEl) subtextEl.textContent = 'Structuring key takeaways…';
+    loadingText.textContent = 'Summarizing';
+    if (subtextEl) subtextEl.textContent = 'Finding the signal';
     
     const apiKey = await getApiKey();
     const pageContent = `Page Title: ${result.title}\n\n${result.content}`;
@@ -334,9 +334,9 @@ async function explainProvidedCode(codeString, language = '') {
 
   try {
     isLoading = true;
-    loadingText.textContent = 'Understanding code…';
+    loadingText.textContent = 'Explaining Code';
     const subtextEl = document.getElementById('loading-subtext');
-    if (subtextEl) subtextEl.textContent = 'Tracing the logic…';
+    if (subtextEl) subtextEl.textContent = 'Tracing the logic';
     showView('loading');
 
     const apiKey = await getApiKey();

@@ -1,6 +1,8 @@
 /* ════════════════════════════════════════════════════════════════
    Xplainify — Premium Developer Tooling Visual Design System
-   Typography: Manrope + JetBrains Mono
+   Primary Font: Slabo 13px
+   Code Font: JetBrains Mono
+   Custom Loader: Progressive Focus Summarization Animation
    Dimensions: 412px · Sharp · Technical · Restrained Glassmorphism
    ════════════════════════════════════════════════════════════════ */
 
@@ -18,8 +20,8 @@
   --bg-base: #07090e;
   --bg-surface: #0e121d;
   --bg-elevated: #141926;
-  --bg-glass: rgba(14, 18, 29, 0.75);
-  --bg-glass-hover: rgba(20, 26, 42, 0.85);
+  --bg-glass: rgba(14, 18, 29, 0.78);
+  --bg-glass-hover: rgba(20, 26, 42, 0.88);
 
   /* Precise Subtle Borders */
   --glass-border: rgba(255, 255, 255, 0.07);
@@ -33,7 +35,7 @@
   --text-label: #7c849e;
 
   /* Font Stacks */
-  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-primary: 'Slabo 13px', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 
   /* Status Colors */
@@ -66,7 +68,7 @@
     --bg-base: #f4f5f8;
     --bg-surface: #ffffff;
     --bg-elevated: #f0f2f6;
-    --bg-glass: rgba(255, 255, 255, 0.85);
+    --bg-glass: rgba(255, 255, 255, 0.88);
     --bg-glass-hover: #ffffff;
 
     --glass-border: rgba(0, 0, 0, 0.08);
@@ -92,6 +94,17 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .focus-scan-line {
+    display: none !important;
+  }
+  .focus-pulse-dot {
+    animation: none !important;
+    opacity: 0.8 !important;
+  }
+  .focus-line {
+    animation: none !important;
+    background-color: rgba(149, 204, 221, 0.3) !important;
+  }
 }
 
 /* ── 4. CSS Reset & Base Layout ──────────────────────────────── */
@@ -107,11 +120,12 @@ body {
   max-height: 580px;
   overflow-y: auto;
   overflow-x: hidden;
-  font-family: var(--font-sans);
+  font-family: var(--font-primary);
   background-color: var(--bg-base);
   color: var(--text-primary);
   padding: 18px 20px;
-  line-height: 1.5;
+  font-size: 13.5px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -199,19 +213,19 @@ body::before {
 }
 
 .brand .logo {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: normal;
   color: var(--text-primary);
-  letter-spacing: -0.3px;
-  font-family: var(--font-sans);
+  letter-spacing: 0.2px;
+  font-family: var(--font-primary);
 }
 
 .brand .tagline {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-muted);
   margin-top: 1px;
-  font-weight: 400;
-  letter-spacing: 0.1px;
+  letter-spacing: 0.2px;
+  font-family: var(--font-primary);
 }
 
 .icon-btn {
@@ -266,8 +280,7 @@ body::before {
 }
 
 .action-card-badge {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 1.2px;
   color: var(--primary-blue);
@@ -275,6 +288,7 @@ body::before {
   padding: 2px 7px;
   border-radius: var(--radius-xs);
   border: 1px solid rgba(66, 116, 217, 0.2);
+  font-family: var(--font-primary);
 }
 
 .action-card-badge.code-badge {
@@ -286,6 +300,7 @@ body::before {
 .action-card-hint {
   font-size: 11px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 /* Page Context in Current Page Card */
@@ -296,7 +311,7 @@ body::before {
 }
 .page-domain {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   font-family: var(--font-mono);
   background: rgba(255, 255, 255, 0.04);
@@ -306,21 +321,22 @@ body::before {
 }
 
 .page-title-preview {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
   color: var(--text-primary);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.4;
+  font-family: var(--font-primary);
 }
 
 .action-card-description {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-secondary);
   line-height: 1.45;
   margin-bottom: 12px;
+  font-family: var(--font-primary);
 }
 
 /* ── 10. Buttons (Sharp Portfolio-Inspired Style) ─────────────── */
@@ -328,15 +344,14 @@ body::before {
   width: 100%;
   padding: 10px 14px;
   border-radius: var(--radius);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-family: var(--font-primary);
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
   border: none;
-  letter-spacing: 0.1px;
+  letter-spacing: 0.3px;
   transition: transform var(--duration-fast) var(--ease),
               background var(--duration-fast) var(--ease),
               box-shadow var(--duration-fast) var(--ease),
@@ -382,7 +397,6 @@ body::before {
 
 .btn-arrow {
   font-size: 14px;
-  font-weight: 600;
   transition: transform var(--duration-fast) var(--ease);
 }
 .action-btn:hover:not(:disabled) .btn-arrow {
@@ -399,22 +413,22 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .status-provider {
-  font-weight: 600;
   color: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  font-size: 10px;
+  letter-spacing: 1px;
+  font-size: 10.5px;
+  font-family: var(--font-primary);
 }
 
 .status-value {
-  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--font-primary);
 }
 .status-value::before {
   content: '';
@@ -450,16 +464,17 @@ body::before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 .footer-credit {
   color: var(--text-muted);
+  font-family: var(--font-primary);
 }
 .footer-link {
   color: var(--primary-blue);
   text-decoration: none;
-  font-weight: 500;
   transition: color var(--duration-fast) var(--ease);
+  font-family: var(--font-primary);
 }
 .footer-link:hover {
   color: var(--light-blue);
@@ -478,8 +493,7 @@ body::before {
 
 .setup-pill {
   display: inline-block;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 9.5px;
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--primary-blue);
@@ -488,21 +502,24 @@ body::before {
   border-radius: var(--radius-xs);
   border: 1px solid rgba(66, 116, 217, 0.2);
   margin-bottom: 8px;
+  font-family: var(--font-primary);
 }
 
 .setup-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: normal;
   color: var(--text-primary);
   letter-spacing: -0.2px;
   margin-bottom: 4px;
+  font-family: var(--font-primary);
 }
 
 .setup-subtitle {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-secondary);
   line-height: 1.45;
   margin-bottom: 14px;
+  font-family: var(--font-primary);
 }
 
 .setup-privacy-callout {
@@ -513,10 +530,11 @@ body::before {
   background: rgba(66, 116, 217, 0.05);
   border: 1px solid rgba(66, 116, 217, 0.15);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-secondary);
   line-height: 1.4;
   margin-bottom: 16px;
+  font-family: var(--font-primary);
 }
 .setup-privacy-callout svg {
   flex-shrink: 0;
@@ -537,13 +555,13 @@ body::before {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-secondary);
+  font-family: var(--font-primary);
 }
 
 .step-num {
   font-size: 10px;
-  font-weight: 700;
   color: var(--primary-blue);
   background: rgba(66, 116, 217, 0.1);
   padding: 2px 6px;
@@ -563,7 +581,7 @@ body::before {
   gap: 8px;
 }
 
-/* ── 14. Loading View ─────────────────────────────────────────── */
+/* ── 14. Loading View (Progressive Focus Animation) ───────────── */
 .loading-container {
   min-height: 220px;
   display: flex;
@@ -574,55 +592,148 @@ body::before {
   padding: 24px 16px;
 }
 
-.loading-visual {
-  position: relative;
-  width: 36px;
-  height: 36px;
+.progressive-focus-card {
+  width: 100%;
+  max-width: 260px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.focus-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 18px;
 }
 
-.loading-orbit {
-  position: absolute;
-  inset: 0;
+.focus-pulse-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 2px solid rgba(66, 116, 217, 0.15);
-  border-top-color: var(--primary-blue);
-  animation: orbitSpin 0.75s linear infinite;
+  background: var(--primary-blue);
+  box-shadow: 0 0 8px rgba(66, 116, 217, 0.7);
+  animation: pulseDot 1.8s ease-in-out infinite;
 }
 
-.loading-core {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--light-blue);
-  box-shadow: 0 0 10px rgba(149, 204, 221, 0.8);
-  animation: corePulse 1.5s ease-in-out infinite;
+@keyframes pulseDot {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(149, 204, 221, 0.85);
+  }
 }
 
-@keyframes orbitSpin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes corePulse {
-  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
-}
-
-.loading-title {
-  font-size: 14px;
-  font-weight: 600;
+.focus-title {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  font-family: var(--font-primary);
 }
 
-.loading-subtitle {
-  font-size: 11px;
+/* The stack of horizontal text lines */
+.focus-stack {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+/* Subtle scanning beam moving vertically */
+.focus-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, var(--primary-blue) 25%, var(--light-blue) 50%, var(--primary-blue) 75%, transparent 100%);
+  box-shadow: 0 0 8px rgba(149, 204, 221, 0.45);
+  pointer-events: none;
+  animation: scanMotion 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes scanMotion {
+  0% {
+    top: -2px;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* Individual lines transitioning dim → focused → dim */
+.focus-line {
+  height: 2.5px;
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.09);
+  transition: background-color 220ms ease, box-shadow 220ms ease;
+  animation: lineFocus 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.focus-line.line-1 {
+  width: 100%;
+  animation-delay: 0s;
+}
+
+.focus-line.line-2 {
+  width: 82%;
+  animation-delay: 0.45s;
+}
+
+.focus-line.line-3 {
+  width: 94%;
+  animation-delay: 0.9s;
+}
+
+.focus-line.line-4 {
+  width: 68%;
+  animation-delay: 1.35s;
+}
+
+@keyframes lineFocus {
+  0% {
+    background-color: rgba(255, 255, 255, 0.09);
+    box-shadow: none;
+  }
+  12% {
+    background-color: var(--light-blue);
+    box-shadow: 0 0 8px rgba(149, 204, 221, 0.4);
+  }
+  28%, 100% {
+    background-color: rgba(255, 255, 255, 0.09);
+    box-shadow: none;
+  }
+}
+
+.focus-subtitle {
+  font-size: 11.5px;
   color: var(--text-muted);
-  max-width: 260px;
+  letter-spacing: 0.3px;
+  font-family: var(--font-primary);
 }
 
 /* ── 15. Result View ──────────────────────────────────────────── */
@@ -639,15 +750,14 @@ body::before {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  font-family: inherit;
+  font-family: var(--font-primary);
   transition: all var(--duration-fast) var(--ease);
 }
 .nav-back-btn:hover {
@@ -660,15 +770,14 @@ body::before {
   background: var(--bg-glass);
   border: 1px solid var(--glass-border);
   color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 11.5px;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
-  font-family: inherit;
+  font-family: var(--font-primary);
   transition: all var(--duration-fast) var(--ease);
 }
 .copy-action-btn:hover {
@@ -687,15 +796,15 @@ body::before {
   max-height: 450px;
   overflow-y: auto;
   padding-right: 4px;
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.65;
   color: var(--text-primary);
+  font-family: var(--font-primary);
 }
 
 /* Headings in result */
 .result-heading {
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1.4px;
   color: var(--text-label);
@@ -703,6 +812,7 @@ body::before {
   margin-bottom: 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--glass-border);
+  font-family: var(--font-primary);
 }
 .result-heading:first-child {
   margin-top: 0;
@@ -737,7 +847,6 @@ body::before {
   left: 0;
   top: 1px;
   font-size: 9.5px;
-  font-weight: 700;
   color: var(--primary-blue);
   background: rgba(66, 116, 217, 0.1);
   padding: 1px 4px;
@@ -765,7 +874,7 @@ body::before {
   content: '';
   position: absolute;
   left: 3px;
-  top: 7px;
+  top: 8px;
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -781,7 +890,6 @@ body::before {
 }
 .result-concept-tag {
   font-size: 10.5px;
-  font-weight: 600;
   color: var(--light-blue);
   background: rgba(149, 204, 221, 0.08);
   border: 1px solid rgba(149, 204, 221, 0.2);
@@ -811,7 +919,7 @@ body::before {
 
 .result-bold {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: bold;
 }
 
 .result-italic {
@@ -839,7 +947,6 @@ body::before {
 
 .result-code-lang {
   font-size: 10px;
-  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--text-muted);
@@ -850,12 +957,11 @@ body::before {
   background: transparent;
   border: none;
   font-size: 10.5px;
-  font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-family: var(--font-sans);
+  font-family: var(--font-primary);
   transition: all var(--duration-fast) var(--ease);
 }
 .result-code-copy-btn:hover {
@@ -881,10 +987,10 @@ body::before {
 }
 
 .code-select-heading {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 10.5px;
   letter-spacing: 1.2px;
   color: var(--text-label);
+  font-family: var(--font-primary);
 }
 
 .code-list-scroll-area {
@@ -925,7 +1031,6 @@ body::before {
 
 .code-card-lang {
   font-size: 11px;
-  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--primary-blue);
@@ -935,6 +1040,7 @@ body::before {
 .code-card-lines {
   font-size: 10.5px;
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .code-card-preview {
@@ -977,10 +1083,10 @@ body::before {
 }
 
 .error-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
   color: var(--text-primary);
   margin-bottom: 6px;
+  font-family: var(--font-primary);
 }
 
 .error-message {
@@ -989,6 +1095,7 @@ body::before {
   line-height: 1.45;
   max-width: 300px;
   margin-bottom: 20px;
+  font-family: var(--font-primary);
 }
 
 .error-actions {
