@@ -75,6 +75,12 @@
     animation: none !important;
     background: var(--rule-strong) !important;
   }
+  .brand-wordmark {
+    animation: none !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    color: var(--text-primary) !important;
+  }
 }
 
 /* ── Sharp Reset ─────────────────────────────────────────────── */
@@ -167,13 +173,41 @@ body {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 7px;
   cursor: default;
   user-select: none;
   display: inline-block;
-  transition: color 240ms var(--ease-out);
+  background: linear-gradient(
+    115deg,
+    var(--text-primary) 0%,
+    var(--text-primary) 40%,
+    #ffffff 50%,
+    rgba(255, 255, 255, 0.85) 54%,
+    var(--text-primary) 64%,
+    var(--text-primary) 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wordmarkSheen 7.5s infinite cubic-bezier(0.16, 1, 0.3, 1);
+  transition: letter-spacing 300ms var(--ease-out),
+              filter 300ms var(--ease-out);
+  will-change: background-position, letter-spacing, filter;
+}
+
+.brand-wordmark:hover {
+  letter-spacing: 0.16em;
+  filter: drop-shadow(0 0 12px rgba(66, 116, 217, 0.35));
+}
+
+@keyframes wordmarkSheen {
+  0%, 72% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -140% 0;
+  }
 }
 
 .brand-philosophy {
