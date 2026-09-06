@@ -49,8 +49,18 @@ export async function listAvailableModels(apiKey) {
     }
 
     if (!response.ok) {
-      const err = new Error(`Models API HTTP ${response.status}`);
+      let detail = '';
+      try {
+        const errorJson = await response.json();
+        if (errorJson && errorJson.error) {
+          detail = errorJson.error.message || '';
+        }
+      } catch {}
+      const err = new Error(detail ? `Models API HTTP ${response.status}: ${detail}` : `Models API HTTP ${response.status}`);
       err.status = response.status;
+      if (detail.toLowerCase().includes('api key') || detail.toLowerCase().includes('key not valid')) {
+        err.isAuth = true;
+      }
       throw err;
     }
 
@@ -313,8 +323,19 @@ async function executeGenerateRequest(apiKey, modelName, body) {
   }, REQUEST_TIMEOUT_MS);
 
   if (!response.ok) {
-    const err = new Error(`HTTP ${response.status}`);
+    let detail = '';
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.error) {
+        detail = errorJson.error.message || '';
+      }
+    } catch {}
+    const err = new Error(detail ? `HTTP ${response.status}: ${detail}` : `HTTP ${response.status}`);
     err.status = response.status;
+    err.apiDetail = detail;
+    if (detail.toLowerCase().includes('api key') || detail.toLowerCase().includes('key not valid')) {
+      err.isAuth = true;
+    }
     throw err;
   }
 
@@ -363,9 +384,22 @@ export function normalizeGeminiError(err) {
     return new Error('Unable to reach Gemini. Check your internet connection and try again.');
   }
 
-  if (err.status === 401 || err.status === 403 || (err.message && (err.message.includes('401') || err.message.includes('403')))) {
+  const msg = (err.message || '').toLowerCase();
+  const detail = (err.apiDetail || '').toLowerCase();
+
+  if (
+    err.isAuth || 
+    err.status === 401 || 
+    err.status === 403 || 
+    msg.includes('401') || 
+    msg.includes('403') || 
+    msg.includes('api key') || 
+    detail.includes('api key') ||
+    detail.includes('key not valid') ||
+    msg.includes('unauthorized')
+  ) {
     const authErr = new Error('Your Gemini API key is invalid or unauthorized. Please check Settings.');
-    authErr.status = err.status || 401;
+    authErr.status = 401;
     authErr.isAuth = true;
     return authErr;
   }

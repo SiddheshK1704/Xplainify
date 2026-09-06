@@ -17,28 +17,9 @@
     <!-- 1. Header Panel (Clean, Centered, No Logo) -->
     <header class="header-panel">
       <div class="hero-brand">
-        <h1 class="brand-wordmark">XPLAINIFY</h1>
+        <h1 class="brand-wordmark">XPLAINIFY<span class="brand-dot">.</span></h1>
       </div>
       <p class="brand-tagline">Understand before you read.</p>
-
-      <!-- Minimal Editorial Navigation (Motion-inspired Physical Micro-interaction) -->
-      <nav class="editorial-nav" aria-label="Extension Navigation">
-        <button id="nav-api-key-btn" class="nav-link-btn" title="Get Google Gemini API Key">
-          <span class="nav-text">API KEY</span>
-          <span class="nav-arrow" aria-hidden="true">&nearr;</span>
-          <span class="nav-indicator" aria-hidden="true"></span>
-        </button>
-        <button id="nav-settings-btn" class="nav-link-btn" title="Open Settings">
-          <span class="nav-text">SETTINGS</span>
-          <span class="nav-arrow" aria-hidden="true">&rarr;</span>
-          <span class="nav-indicator" aria-hidden="true"></span>
-        </button>
-        <a href="https://siddheshk17-portfolio.vercel.app/" id="nav-portfolio-link" class="nav-link-btn" target="_blank" rel="noopener noreferrer" title="View Developer Portfolio">
-          <span class="nav-text">PORTFOLIO</span>
-          <span class="nav-arrow" aria-hidden="true">&nearr;</span>
-          <span class="nav-indicator" aria-hidden="true"></span>
-        </a>
-      </nav>
     </header>
 
     <!-- 2. Main Hero / Current Page Panel -->
@@ -59,8 +40,9 @@
 
         <div class="action-row">
           <button id="summarize-btn" class="action-btn primary-action">
-            <span>SUMMARIZE</span>
+            <span class="btn-text">SUMMARIZE</span>
             <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+            <span class="btn-indicator" aria-hidden="true"></span>
           </button>
         </div>
       </section>
@@ -72,8 +54,9 @@
         <p class="section-desc">Understand the logic and execution flow, not just the syntax.</p>
         <div class="action-row">
           <button id="explain-btn" class="action-btn secondary-action">
-            <span>EXPLAIN</span>
+            <span class="btn-text">EXPLAIN</span>
             <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+            <span class="btn-indicator" aria-hidden="true"></span>
           </button>
         </div>
       </section>
@@ -88,11 +71,22 @@
             <span class="status-label">AI READY</span>
           </span>
         </div>
-        <div class="micro-credit">
-          <span class="author">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
-          <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="author-link" target="_blank" rel="noopener noreferrer" style="display: none;">Portfolio &nearr;</a>
-          <button id="settings-btn" style="display: none;" aria-hidden="true"></button>
+        <div class="nav-group">
+          <button id="settings-btn" class="text-link-btn" title="Open Settings">
+            <span class="btn-text">SETTINGS</span>
+            <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+            <span class="link-indicator" aria-hidden="true"></span>
+          </button>
         </div>
+      </div>
+
+      <div class="micro-footer">
+        <span class="author">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
+        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="author-link" target="_blank" rel="noopener noreferrer" title="View Developer Portfolio">
+          <span class="link-text">Portfolio</span>
+          <span class="link-arrow" aria-hidden="true">&nearr;</span>
+          <span class="link-indicator" aria-hidden="true"></span>
+        </a>
       </div>
     </footer>
   </div>

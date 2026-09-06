@@ -38,9 +38,6 @@ const pageTitlePreview = document.getElementById('page-title-preview');
 const pageDomain = document.getElementById('page-domain');
 const settingsBtn = document.getElementById('settings-btn');
 const portfolioLink = document.getElementById('portfolio-link');
-const navApiKeyBtn = document.getElementById('nav-api-key-btn');
-const navSettingsBtn = document.getElementById('nav-settings-btn');
-const navPortfolioLink = document.getElementById('nav-portfolio-link');
 
 // Setup View Elements
 const getKeyBtn = document.getElementById('get-key-btn');
@@ -205,7 +202,7 @@ async function handleSummarize() {
     showView('result');
 
   } catch (err) {
-    console.error('Summarize pipeline notice:', err.message || err);
+    console.warn('Summarize pipeline notice:', err.message || err);
     displayError(err);
   } finally {
     isLoading = false;
@@ -412,12 +409,13 @@ function runCodeDetection() {
  * Routes to single code explanation or snippet selection list.
  */
 function handleExplainCode() {
-  if (detectedCodeBlocks.length === 0) return;
+  if (!detectedCodeBlocks || detectedCodeBlocks.length === 0) return;
 
   if (detectedCodeBlocks.length === 1) {
     const block = detectedCodeBlocks[0];
+    if (!block || !block.code) return;
     lastAction = 'explain';
-    lastCodeToExplain = { code: block.code, language: block.language };
+    lastCodeToExplain = { code: block.code, language: block.language || '' };
     explainProvidedCode(block.code, block.language);
   } else {
     // Show selection list
@@ -478,8 +476,9 @@ function renderCodeSelectionList() {
 async function handleExplainSelectedCode() {
   if (selectedCodeIndex < 0 || selectedCodeIndex >= detectedCodeBlocks.length) return;
   const block = detectedCodeBlocks[selectedCodeIndex];
+  if (!block || !block.code) return;
   lastAction = 'explain-selected';
-  lastCodeToExplain = { code: block.code, language: block.language };
+  lastCodeToExplain = { code: block.code, language: block.language || '' };
   await explainProvidedCode(block.code, block.language);
 }
 
@@ -495,6 +494,11 @@ async function explainProvidedCode(codeString, language = '') {
     return;
   }
 
+  if (!codeString || typeof codeString !== 'string' || codeString.trim().length === 0) {
+    displayError(new Error('No code snippet was detected or selected to explain.'));
+    return;
+  }
+
   try {
     isLoading = true;
     if (loadingText) loadingText.textContent = 'EXPLAINING CODE';
@@ -502,6 +506,11 @@ async function explainProvidedCode(codeString, language = '') {
     showView('loading');
 
     const apiKey = await getApiKey();
+    if (!apiKey) {
+      showView('setup');
+      return;
+    }
+
     const prompt = buildCodeExplanationPrompt(codeString, language);
     const explanation = await callGemini(apiKey, prompt);
 
@@ -510,7 +519,7 @@ async function explainProvidedCode(codeString, language = '') {
     showView('result');
 
   } catch (err) {
-    console.error('Explain pipeline notice:', err.message || err);
+    console.warn('Explain pipeline notice:', err.message || err);
     displayError(err);
   } finally {
     isLoading = false;
@@ -596,26 +605,6 @@ async function init() {
   // Attach event listeners
   if (summarizeBtn) summarizeBtn.addEventListener('click', handleSummarize);
   if (explainBtn) explainBtn.addEventListener('click', handleExplainCode);
-
-  // Editorial Navigation Listeners
-  if (navApiKeyBtn) {
-    navApiKeyBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://aistudio.google.com/app/api-keys' });
-    });
-  }
-
-  if (navSettingsBtn) {
-    navSettingsBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-    });
-  }
-
-  if (navPortfolioLink) {
-    navPortfolioLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      chrome.tabs.create({ url: 'https://siddheshk17-portfolio.vercel.app/' });
-    });
-  }
 
   if (settingsBtn) {
     settingsBtn.addEventListener('click', () => {
