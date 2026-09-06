@@ -1,18 +1,21 @@
 /**
  * Xplainify — Main Popup Controller
- * Coordinates editorial UI transitions, dynamic model resolution,
- * resilient extraction pipelines, and graceful error recovery.
+ * Coordinates editorial UI transitions, canonical extraction pipelines,
+ * deferred non-blocking code detection, request state locking, and graceful recovery.
  */
 
 import { getApiKey, hasApiKey, saveContextMenuCode, getContextMenuCode, clearContextMenuCode } from './js/storage.js';
 import { callGemini, normalizeGeminiError } from './js/api.js';
+import { extractPageContent, detectCodeBlocks } from './js/extractor.js';
 import { buildSummaryPrompt, buildCodeExplanationPrompt } from './js/prompts.js';
 import { renderResultSafe, copyToClipboard, formatLanguage } from './js/utils.js';
 
-// State
+// State Management
 let currentView = 'main';
-let isLoading = false;
+let requestState = 'IDLE'; // 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'
 let detectedCodeBlocks = [];
+let cachedTabId = null;
+let cachedCodeBlocks = null;
 let currentResultText = '';
 let selectedCodeIndex = -1;
 let lastAction = null; // 'summarize' | 'explain' | 'explain-selected'
@@ -77,6 +80,18 @@ function showView(viewName) {
 }
 
 /**
+ * Updates request state and locks/unlocks buttons to prevent double actions.
+ * @param {'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'} state 
+ */
+function setRequestState(state) {
+  requestState = state;
+  const isBusy = state === 'LOADING';
+  if (summarizeBtn) summarizeBtn.disabled = isBusy;
+  if (explainBtn) explainBtn.disabled = isBusy;
+  if (explainSelectedBtn) explainSelectedBtn.disabled = isBusy || selectedCodeIndex < 0;
+}
+
+/**
  * Checks if a URL cannot be injected or read due to Chrome security policies.
  * @param {string} url 
  * @returns {boolean}
@@ -130,8 +145,7 @@ function updatePageContext(tab) {
 /**
  * Updates AI status indicator in bottom bar without exposing model strings.
  */
-async function updateApiStatus() {
-  const hasKey = await hasApiKey();
+function updateApiStatusIndicator(hasKey) {
   const labelEl = statusIndicator ? statusIndicator.querySelector('.status-label') : null;
 
   if (hasKey) {
@@ -145,10 +159,10 @@ async function updateApiStatus() {
 }
 
 /**
- * Main Summarize Page flow with complete stage validation.
+ * Main Summarize Page flow using canonical extraction engine.
  */
 async function handleSummarize() {
-  if (isLoading) return;
+  if (requestState === 'LOADING') return;
 
   const hasKey = await hasApiKey();
   if (!hasKey) {
@@ -168,27 +182,27 @@ async function handleSummarize() {
       throw new Error('Xplainify cannot read internal browser or extension store pages. Navigate to a regular web article or documentation page.');
     }
 
-    // Set loading state
-    isLoading = true;
+    // Set loading state & lock controls
+    setRequestState('LOADING');
     if (loadingText) loadingText.textContent = 'SUMMARIZING';
     if (loadingSubtext) loadingSubtext.textContent = 'EXTRACTING KEY TAKEAWAYS';
     const inlineSkeleton = document.getElementById('inline-skeleton');
     if (inlineSkeleton) inlineSkeleton.style.display = 'flex';
     showView('loading');
 
-    // Extract content via robust in-memory script execution
+    // Extract content using the canonical extractor from js/extractor.js
     const executionResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: runPageExtraction
+      func: extractPageContent
     });
 
     if (!executionResults || !executionResults[0] || !executionResults[0].result) {
-      throw new Error('Could not extract text from this webpage. The page may still be loading or protected.');
+      throw new Error("Xplainify couldn't find enough readable content on this page.");
     }
 
     const extraction = executionResults[0].result;
-    if (extraction.error || !extraction.content || extraction.content.length < 15) {
-      throw new Error(extraction.error || 'This page does not contain readable content to summarize.');
+    if (extraction.error || !extraction.content || extraction.content.length < 50) {
+      throw new Error(extraction.error || "Xplainify couldn't find enough readable content on this page.");
     }
 
     const apiKey = await getApiKey();
@@ -199,209 +213,69 @@ async function handleSummarize() {
 
     currentResultText = summary;
     renderResultSafe(resultContent, summary);
+    setRequestState('SUCCESS');
     showView('result');
 
   } catch (err) {
-    console.warn('Summarize pipeline notice:', err.message || err);
+    console.warn('[Xplainify][Popup] Summarize notice:', err.message || err);
+    setRequestState('ERROR');
     displayError(err);
   } finally {
-    isLoading = false;
+    if (requestState === 'LOADING') setRequestState('IDLE');
     const inlineSkeleton = document.getElementById('inline-skeleton');
     if (inlineSkeleton) inlineSkeleton.style.display = 'none';
   }
 }
 
 /**
- * Inline universal extraction function executed safely in page context.
- * Capable of extracting meaningful text from any internet page:
- * articles, wikis, forums, documentation, SPAs, and blogs.
- */
-function runPageExtraction() {
-  try {
-    const title = document.title ? document.title.trim() : '';
-    
-    // Priority container selectors for standard and complex web layouts
-    const selectors = [
-      'article',
-      '[role="main"]',
-      'main',
-      '#mw-content-text', // Wikipedia
-      '.theme-doc-markdown', // Docusaurus
-      '.docs-content',
-      '.documentation',
-      '.markdown-body', // GitHub
-      '.post-content',
-      '.article-content',
-      '.entry-content',
-      '#content',
-      '#main-content',
-      '#root',
-      '#__next',
-      '#app',
-      '.content',
-      '.body',
-      '.story-body'
-    ];
-
-    let mainContent = null;
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent && el.textContent.trim().length > 60) {
-        mainContent = el;
-        break;
-      }
-    }
-
-    if (!mainContent) mainContent = document.body;
-    if (!mainContent) return { title, content: '', error: 'Page has no readable content.' };
-
-    const clone = mainContent.cloneNode(true);
-    const noise = clone.querySelectorAll(
-      'script, style, noscript, iframe, svg, canvas, nav, footer, header, aside, ' +
-      '[role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"], ' +
-      '.sidebar, .nav, .navbar, .menu, .footer, .header, .ad, .ads, .advertisement, ' +
-      '.social-share, .cookie-banner, .consent-banner, .popup, .modal, .dialog, form'
-    );
-    noise.forEach(el => el.remove());
-
-    let text = clone.textContent || '';
-    text = text.replace(/\s*\n\s*/g, '\n').replace(/[ \t]+/g, ' ').trim();
-
-    // Universal fallback 1: If text is short, collect all paragraphs, headings, and lists
-    if (!text || text.length < 50) {
-      const parts = [];
-      const textNodes = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, pre');
-      textNodes.forEach(node => {
-        if (!node.closest('nav, footer, header, script, style, .nav, .menu, .cookie-banner, .ad')) {
-          const t = (node.textContent || '').trim();
-          if (t.length > 5) parts.push(t);
-        }
-      });
-      if (parts.length > 0) {
-        text = parts.join('\n\n').trim();
-      }
-    }
-
-    // Universal fallback 2: Body text stripping scripts and styles
-    if (!text || text.length < 20) {
-      if (document.body) {
-        const bodyClone = document.body.cloneNode(true);
-        bodyClone.querySelectorAll('script, style, noscript, nav, header, footer').forEach(n => n.remove());
-        text = (bodyClone.textContent || '').replace(/\s+/g, ' ').trim();
-      }
-    }
-
-    if (!text || text.length < 15) {
-      return { title, content: '', error: 'This page appears to be empty or has no readable text.' };
-    }
-
-    // Smart truncation at 28,000 characters
-    const maxLength = 28000;
-    if (text.length > maxLength) {
-      let truncateAt = text.lastIndexOf('.', maxLength);
-      if (truncateAt === -1 || truncateAt < maxLength - 2000) {
-        truncateAt = text.lastIndexOf('\n', maxLength);
-      }
-      if (truncateAt === -1) truncateAt = maxLength;
-      text = text.substring(0, truncateAt) + '\n\n[Content truncated for length]';
-    }
-
-    return { title, content: text };
-  } catch (e) {
-    return { title: document.title || '', content: '', error: e.toString() };
-  }
-}
-
-/**
- * Handle Code Detection on active tab.
+ * Handles Code Detection on active tab with caching to avoid duplicate DOM scans.
+ * @param {number} tabId 
  */
 async function handleCodeDetection(tabId) {
+  // Check tab code detection cache
+  if (cachedTabId === tabId && cachedCodeBlocks !== null) {
+    applyDetectedCodeBlocks(cachedCodeBlocks);
+    return;
+  }
+
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
-      func: runCodeDetection
+      func: detectCodeBlocks
     });
 
-    if (results && results[0] && Array.isArray(results[0].result) && results[0].result.length > 0) {
-      detectedCodeBlocks = results[0].result;
-      if (explainCard) explainCard.style.display = 'block';
-
-      if (codeMeta) {
-        const first = detectedCodeBlocks[0];
-        const lang = formatLanguage ? formatLanguage(first.language) : (first.language || 'Code');
-        const count = detectedCodeBlocks.length;
-        codeMeta.textContent = count === 1 
-          ? `${lang} · ${first.lineCount} lines`
-          : `${lang} · ${first.lineCount} lines (${count} snippets detected)`;
-      }
+    if (results && results[0] && Array.isArray(results[0].result)) {
+      cachedTabId = tabId;
+      cachedCodeBlocks = results[0].result;
+      applyDetectedCodeBlocks(cachedCodeBlocks);
     } else {
       if (explainCard) explainCard.style.display = 'none';
     }
-  } catch (err) {
-    // Non-fatal, page might not allow script execution
+  } catch {
+    // Non-fatal: page might restrict script injection
     if (explainCard) explainCard.style.display = 'none';
   }
 }
 
 /**
- * Inline code detector executed in page context.
+ * Applies detected code blocks to UI metadata.
+ * @param {Array<Object>} blocks 
  */
-function runCodeDetection() {
-  try {
-    const selectors = 'pre code, pre.highlight, .highlight pre, .code-block, [class*="language-"]';
-    let elements = Array.from(document.querySelectorAll(selectors));
-    
-    const standalonePres = document.querySelectorAll('pre');
-    standalonePres.forEach(pre => {
-      if (!pre.querySelector('code') && !elements.includes(pre)) {
-        if ((pre.textContent || '').split('\n').length > 1) {
-          elements.push(pre);
-        }
-      }
-    });
+function applyDetectedCodeBlocks(blocks) {
+  detectedCodeBlocks = blocks;
+  if (detectedCodeBlocks.length > 0) {
+    if (explainCard) explainCard.style.display = 'block';
 
-    const blocks = [];
-    const seen = new Set();
-    const processedParents = new Set();
-
-    elements.forEach((el, index) => {
-      if (el.tagName && el.tagName.toLowerCase() === 'code' && el.parentElement && el.parentElement.tagName.toLowerCase() === 'pre') {
-        if (processedParents.has(el.parentElement)) return;
-        processedParents.add(el.parentElement);
-      }
-
-      const text = (el.textContent || '').trim();
-      const lines = text.split(/\r\n|\r|\n/);
-      if (lines.length < 3 || text.length < 50) return;
-
-      if (seen.has(text)) return;
-      seen.add(text);
-
-      let language = 'unknown';
-      const classes = Array.from(el.classList).concat(el.parentElement ? Array.from(el.parentElement.classList) : []);
-      for (const cls of classes) {
-        if (cls.startsWith('language-') || cls.startsWith('lang-')) {
-          language = cls.replace(/^language-|^lang-/, '');
-          break;
-        }
-        const known = ['python', 'javascript', 'typescript', 'js', 'ts', 'html', 'css', 'java', 'cpp', 'c', 'csharp', 'go', 'rust', 'php', 'sql', 'bash', 'shell', 'json', 'yaml', 'ruby', 'swift', 'kotlin'];
-        if (known.includes(cls.toLowerCase())) {
-          language = cls.toLowerCase();
-          break;
-        }
-      }
-
-      blocks.push({
-        code: text.substring(0, 10000),
-        language,
-        lineCount: lines.length,
-        index
-      });
-    });
-
-    return blocks;
-  } catch {
-    return [];
+    if (codeMeta) {
+      const first = detectedCodeBlocks[0];
+      const lang = formatLanguage ? formatLanguage(first.language) : (first.language || 'Code');
+      const count = detectedCodeBlocks.length;
+      codeMeta.textContent = count === 1 
+        ? `${lang} · ${first.lineCount} lines`
+        : `${lang} · ${first.lineCount} lines (${count} snippets detected)`;
+    }
+  } else {
+    if (explainCard) explainCard.style.display = 'none';
   }
 }
 
@@ -418,7 +292,6 @@ function handleExplainCode() {
     lastCodeToExplain = { code: block.code, language: block.language || '' };
     explainProvidedCode(block.code, block.language);
   } else {
-    // Show selection list
     renderCodeSelectionList();
     showView('code-select');
   }
@@ -486,7 +359,7 @@ async function handleExplainSelectedCode() {
  * Explains an arbitrary code snippet.
  */
 async function explainProvidedCode(codeString, language = '') {
-  if (isLoading) return;
+  if (requestState === 'LOADING') return;
 
   const hasKey = await hasApiKey();
   if (!hasKey) {
@@ -500,7 +373,7 @@ async function explainProvidedCode(codeString, language = '') {
   }
 
   try {
-    isLoading = true;
+    setRequestState('LOADING');
     if (loadingText) loadingText.textContent = 'EXPLAINING CODE';
     if (loadingSubtext) loadingSubtext.textContent = 'TRACING THE LOGIC';
     showView('loading');
@@ -516,13 +389,15 @@ async function explainProvidedCode(codeString, language = '') {
 
     currentResultText = explanation;
     renderResultSafe(resultContent, explanation);
+    setRequestState('SUCCESS');
     showView('result');
 
   } catch (err) {
-    console.warn('Explain pipeline notice:', err.message || err);
+    console.warn('[Xplainify][Popup] Explain notice:', err.message || err);
+    setRequestState('ERROR');
     displayError(err);
   } finally {
-    isLoading = false;
+    if (requestState === 'LOADING') setRequestState('IDLE');
   }
 }
 
@@ -597,12 +472,9 @@ function handleRetry() {
 }
 
 /**
- * Initializes the popup.
+ * Attaches all static DOM event listeners.
  */
-async function init() {
-  await updateApiStatus();
-
-  // Attach event listeners
+function attachEventListeners() {
   if (summarizeBtn) summarizeBtn.addEventListener('click', handleSummarize);
   if (explainBtn) explainBtn.addEventListener('click', handleExplainCode);
 
@@ -646,21 +518,46 @@ async function init() {
       chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
     });
   }
+}
 
-  // Active tab context & code detection
+/**
+ * Initializes the popup with fast parallel queries and deferred code detection.
+ */
+async function init() {
+  // 1. Parallelize independent queries for near-instant popup load
+  let tab = null;
+  let hasKey = false;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) {
-      updatePageContext(tab);
-      if (tab.id && !isRestrictedUrl(tab.url)) {
-        await handleCodeDetection(tab.id);
-      }
+    const [tabResults, keyStatus] = await Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      hasApiKey()
+    ]);
+    if (tabResults && tabResults.length > 0) {
+      tab = tabResults[0];
     }
+    hasKey = keyStatus;
   } catch (err) {
-    console.warn('Initial tab query notice:', err);
+    console.warn('[Xplainify][Popup] Parallel init notice:', err);
   }
 
-  // Check if opened via Context Menu (selection)
+  // 2. Immediately render context and AI readiness
+  updateApiStatusIndicator(hasKey);
+  if (tab) {
+    updatePageContext(tab);
+  }
+
+  // 3. Attach event listeners
+  attachEventListeners();
+
+  // 4. Deferred non-blocking code detection via requestIdleCallback
+  if (tab && tab.id && !isRestrictedUrl(tab.url)) {
+    const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 0));
+    schedule(() => {
+      handleCodeDetection(tab.id);
+    });
+  }
+
+  // 5. Check if opened via Context Menu (selection)
   try {
     const contextMenuCode = await getContextMenuCode();
     if (contextMenuCode) {
@@ -671,7 +568,7 @@ async function init() {
       await explainProvidedCode(contextMenuCode);
     }
   } catch (err) {
-    console.warn('Context menu check notice:', err);
+    console.warn('[Xplainify][Popup] Context menu check notice:', err);
   }
 }
 
