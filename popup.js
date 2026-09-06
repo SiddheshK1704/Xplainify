@@ -201,10 +201,7 @@ async function handleSummarize() {
 
   } catch (err) {
     console.error('Summarize pipeline notice:', err.message || err);
-    if (errorMessage) {
-      errorMessage.textContent = err.message || 'We were unable to summarize this webpage. Please try again.';
-    }
-    showView('error');
+    displayError(err);
   } finally {
     isLoading = false;
   }
@@ -472,13 +469,41 @@ async function explainProvidedCode(codeString, language = '') {
 
   } catch (err) {
     console.error('Explain pipeline notice:', err.message || err);
-    if (errorMessage) {
-      errorMessage.textContent = err.message || 'We were unable to explain this code snippet. Please try again.';
-    }
-    showView('error');
+    displayError(err);
   } finally {
     isLoading = false;
   }
+}
+
+/**
+ * Handles errors gracefully, surfacing clear copy and direct settings access for auth failures.
+ */
+function displayError(err) {
+  const isAuth = err.isAuth || (err.message && (
+    err.message.includes('API key') || 
+    err.message.includes('Settings') || 
+    err.message.includes('unauthorized') || 
+    err.message.includes('invalid') ||
+    err.message.includes('401') ||
+    err.message.includes('403')
+  ));
+
+  if (errorMessage) {
+    errorMessage.textContent = err.message || 'We were unable to complete that request. Please try again.';
+  }
+
+  const errorSettingsBtn = document.getElementById('error-settings-btn');
+  if (errorSettingsBtn && retryBtn) {
+    if (isAuth) {
+      errorSettingsBtn.style.display = 'inline-flex';
+      retryBtn.style.display = 'none';
+    } else {
+      errorSettingsBtn.style.display = 'none';
+      retryBtn.style.display = 'inline-flex';
+    }
+  }
+
+  showView('error');
 }
 
 /**
@@ -563,6 +588,13 @@ async function init() {
 
   if (retryBtn) retryBtn.addEventListener('click', handleRetry);
   if (errorBackBtn) errorBackBtn.addEventListener('click', () => showView('main'));
+
+  const errorSettingsBtn = document.getElementById('error-settings-btn');
+  if (errorSettingsBtn) {
+    errorSettingsBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+    });
+  }
 
   // Active tab context & code detection
   try {

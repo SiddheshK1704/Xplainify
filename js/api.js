@@ -247,8 +247,13 @@ export async function callGemini(apiKey, prompt) {
     }]
   });
 
-  // Resolve model from cache or Models API
-  let activeModel = await resolveBestGeminiModel(cleanKey);
+  // Resolve model from cache or Models API with normalized error handling
+  let activeModel;
+  try {
+    activeModel = await resolveBestGeminiModel(cleanKey);
+  } catch (resolveErr) {
+    throw normalizeGeminiError(resolveErr);
+  }
 
   // Attempt generation with single self-healing retry
   try {
@@ -358,8 +363,11 @@ export function normalizeGeminiError(err) {
     return new Error('Unable to reach Gemini. Check your internet connection and try again.');
   }
 
-  if (err.status === 401 || err.status === 403) {
-    return new Error('Your Gemini API key is invalid or unauthorized. Please check Settings.');
+  if (err.status === 401 || err.status === 403 || (err.message && (err.message.includes('401') || err.message.includes('403')))) {
+    const authErr = new Error('Your Gemini API key is invalid or unauthorized. Please check Settings.');
+    authErr.status = err.status || 401;
+    authErr.isAuth = true;
+    return authErr;
   }
 
   if (err.status === 404) {
