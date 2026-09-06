@@ -120,10 +120,10 @@ body {
   background: linear-gradient(
     115deg,
     var(--text-primary) 0%,
-    var(--text-primary) 38%,
-    var(--accent-light) 50%,
-    var(--accent-blue) 56%,
-    var(--text-primary) 68%,
+    var(--text-primary) 40%,
+    #ffffff 50%,
+    rgba(255, 255, 255, 0.7) 54%,
+    var(--text-primary) 64%,
     var(--text-primary) 100%
   );
   background-size: 240% 100%;
@@ -138,7 +138,7 @@ body {
 
 .brand-wordmark:hover {
   letter-spacing: 0.19em;
-  filter: drop-shadow(0 0 10px rgba(66, 116, 217, 0.35));
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.25));
 }
 
 @keyframes wordmarkEntry {
