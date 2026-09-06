@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xplainify</title>
+  <title>Xplainify.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
@@ -14,13 +14,31 @@
        MAIN EDITORIAL VIEW
        ══════════════════════════════════════════════════ -->
   <div id="main-view" class="view active">
-    <!-- 1. Logo / Header Panel -->
+    <!-- 1. Header Panel (Clean, Centered, No Logo) -->
     <header class="header-panel">
       <div class="hero-brand">
-        <img src="icons/icon48.png" alt="" class="brand-icon" width="22" height="22" aria-hidden="true">
         <h1 class="brand-wordmark">XPLAINIFY</h1>
       </div>
       <p class="brand-tagline">Understand before you read.</p>
+
+      <!-- Minimal Editorial Navigation (Motion-inspired Physical Micro-interaction) -->
+      <nav class="editorial-nav" aria-label="Extension Navigation">
+        <button id="nav-api-key-btn" class="nav-link-btn" title="Get Google Gemini API Key">
+          <span class="nav-text">API KEY</span>
+          <span class="nav-arrow" aria-hidden="true">&nearr;</span>
+          <span class="nav-indicator" aria-hidden="true"></span>
+        </button>
+        <button id="nav-settings-btn" class="nav-link-btn" title="Open Settings">
+          <span class="nav-text">SETTINGS</span>
+          <span class="nav-arrow" aria-hidden="true">&rarr;</span>
+          <span class="nav-indicator" aria-hidden="true"></span>
+        </button>
+        <a href="https://siddheshk17-portfolio.vercel.app/" id="nav-portfolio-link" class="nav-link-btn" target="_blank" rel="noopener noreferrer" title="View Developer Portfolio">
+          <span class="nav-text">PORTFOLIO</span>
+          <span class="nav-arrow" aria-hidden="true">&nearr;</span>
+          <span class="nav-indicator" aria-hidden="true"></span>
+        </a>
+      </nav>
     </header>
 
     <!-- 2. Main Hero / Current Page Panel -->
@@ -70,17 +88,11 @@
             <span class="status-label">AI READY</span>
           </span>
         </div>
-        <div class="nav-group">
-          <button id="settings-btn" class="text-link-btn" title="Open Settings">
-            <span>SETTINGS</span>
-            <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-          </button>
+        <div class="micro-credit">
+          <span class="author">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
+          <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="author-link" target="_blank" rel="noopener noreferrer" style="display: none;">Portfolio &nearr;</a>
+          <button id="settings-btn" style="display: none;" aria-hidden="true"></button>
         </div>
-      </div>
-
-      <div class="micro-footer">
-        <span class="author">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
-        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="author-link" target="_blank" rel="noopener noreferrer">Portfolio &nearr;</a>
       </div>
     </footer>
   </div>
