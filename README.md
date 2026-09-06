@@ -14,11 +14,14 @@ Xplainify is a lightweight, AI-powered Chrome extension designed for students, d
 - Light and dark mode support
 - Keyboard accessible
 - Privacy-focused (no tracking, no data collection)
+- Sharp architectural design with zero curved borders
+- Editorial typography (Bebas Neue wordmark, Playfair Display UI, JetBrains Mono code)
+- Progressive Focus scanning loader
 
 ## Tech Stack
 - Chrome Extensions Manifest V3
 - HTML / CSS / Vanilla JavaScript
-- Google Gemini API (gemini-3.8-flash)
+- Google Gemini API (`gemini-flash-latest` with automatic `gemini-1.5-flash-latest` fallback)
 - Chrome Storage API
 - Chrome Scripting API
 

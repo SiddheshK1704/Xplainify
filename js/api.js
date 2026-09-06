@@ -1,82 +1,145 @@
 /**
  * Xplainify — Gemini API Client
- * Direct browser-to-Gemini API communication using user's local key.
- * Never logs API keys or sends them to any third-party server.
+ * Centralized Gemini model configuration and resilient client.
+ * Uses Google's official stable alias: gemini-flash-latest
+ * Includes fallback capability and strict key hygiene.
  */
 
+// Single source of truth for Gemini model configuration
+export const GEMINI_CONFIG = {
+  primaryModel: 'gemini-flash-latest',
+  fallbackModel: 'gemini-1.5-flash-latest',
+  apiVersion: 'v1beta'
+};
+
+/**
+ * Calls Gemini generateContent endpoint.
+ * @param {string} apiKey 
+ * @param {string} prompt 
+ * @returns {Promise<string>}
+ */
 export async function callGemini(apiKey, prompt) {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
     throw new Error('Your Gemini API key is invalid or unavailable. Check Settings.');
   }
 
   const cleanKey = apiKey.trim();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [{
+        text: prompt
+      }]
+    }]
+  });
 
+  // Try primary model first (gemini-flash-latest)
   try {
-    const response = await fetch(endpoint, {
+    return await executeGenerateContent(cleanKey, GEMINI_CONFIG.primaryModel, requestBody);
+  } catch (primaryErr) {
+    // If 404 on the primary alias, attempt fallback to fallbackModel
+    if (primaryErr.status === 404 && GEMINI_CONFIG.fallbackModel) {
+      console.warn(`Primary model "${GEMINI_CONFIG.primaryModel}" returned 404. Attempting fallback to "${GEMINI_CONFIG.fallbackModel}"...`);
+      try {
+        return await executeGenerateContent(cleanKey, GEMINI_CONFIG.fallbackModel, requestBody);
+      } catch (fallbackErr) {
+        throw mapGeminiError(fallbackErr);
+      }
+    }
+    throw mapGeminiError(primaryErr);
+  }
+}
+
+/**
+ * Executes the HTTP request to Gemini generateContent.
+ */
+async function executeGenerateContent(apiKey, modelName, body) {
+  const endpoint = `https://generativelanguage.googleapis.com/${GEMINI_CONFIG.apiVersion}/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
+      body
     });
-
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Your Gemini API key is invalid or unavailable. Check Settings.');
-    }
-    if (response.status === 404) {
-      throw new Error('The selected Gemini model is unavailable. Please try again later.');
-    }
-    if (response.status === 429) {
-      throw new Error('Gemini is temporarily rate-limited. Please try again in a moment.');
-    }
-    if (response.status >= 500) {
-      throw new Error('Gemini is temporarily unavailable. Please try again.');
-    }
-    if (!response.ok) {
-      throw new Error(`Gemini service error (${response.status}). Please try again.`);
-    }
-
-    const data = await response.json();
-    
-    if (
-      !data || 
-      !data.candidates || 
-      !data.candidates[0] || 
-      !data.candidates[0].content || 
-      !data.candidates[0].content.parts || 
-      !data.candidates[0].content.parts[0] || 
-      typeof data.candidates[0].content.parts[0].text !== 'string'
-    ) {
-      if (data && data.promptFeedback && data.promptFeedback.blockReason) {
-        throw new Error('Content could not be processed due to safety restrictions.');
-      }
-      throw new Error('Received an empty response from Gemini. Please try again.');
-    }
-
-    const resultText = data.candidates[0].content.parts[0].text.trim();
-    if (resultText.length === 0) {
-      throw new Error('Received an empty response from Gemini. Please try again.');
-    }
-
-    return resultText;
-  } catch (error) {
-    if (
-      error.name === 'TypeError' || 
-      error.message.includes('NetworkError') || 
-      error.message.includes('Failed to fetch')
-    ) {
-      throw new Error('Unable to reach Gemini. Check your connection and try again.');
-    }
-    
-    // Log technical message to developer console without exposing key
-    console.error('Gemini request failed:', error.message);
-    throw error;
+  } catch (netErr) {
+    const err = new Error('Network error');
+    err.isNetwork = true;
+    throw err;
   }
+
+  if (!response.ok) {
+    const err = new Error(`HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  const data = await response.json();
+
+  if (
+    !data ||
+    !data.candidates ||
+    !data.candidates[0] ||
+    !data.candidates[0].content ||
+    !data.candidates[0].content.parts ||
+    !data.candidates[0].content.parts[0] ||
+    typeof data.candidates[0].content.parts[0].text !== 'string'
+  ) {
+    if (data && data.promptFeedback && data.promptFeedback.blockReason) {
+      const err = new Error('Safety block');
+      err.isSafety = true;
+      throw err;
+    }
+    const err = new Error('Empty response');
+    err.isEmpty = true;
+    throw err;
+  }
+
+  const resultText = data.candidates[0].content.parts[0].text.trim();
+  if (resultText.length === 0) {
+    const err = new Error('Empty response text');
+    err.isEmpty = true;
+    throw err;
+  }
+
+  return resultText;
+}
+
+/**
+ * Maps errors to clean, user-facing error messages without exposing keys.
+ */
+function mapGeminiError(err) {
+  if (
+    err.isNetwork || 
+    err.name === 'TypeError' || 
+    (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')))
+  ) {
+    return new Error('Unable to reach Gemini. Check your connection and try again.');
+  }
+
+  if (err.status === 401 || err.status === 403) {
+    return new Error('Your Gemini API key is invalid or unavailable. Check Settings.');
+  }
+
+  if (err.status === 404) {
+    return new Error('The Gemini service is currently unavailable. Please try again.');
+  }
+
+  if (err.status === 429) {
+    return new Error('Gemini is temporarily rate-limited. Please try again shortly.');
+  }
+
+  if (err.status >= 500) {
+    return new Error('Gemini is temporarily unavailable. Please try again.');
+  }
+
+  if (err.isSafety) {
+    return new Error('Content could not be processed due to safety restrictions.');
+  }
+
+  // Log non-sensitive technical error to developer console
+  console.error('Gemini error:', err.message || err);
+  return new Error('Something went wrong while processing this page. Please try again.');
 }
