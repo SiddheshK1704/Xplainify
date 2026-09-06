@@ -6,135 +6,140 @@
   <title>Xplainify.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+
   <!-- ══════════════════════════════════════════════════
-       MAIN EDITORIAL VIEW
+       1. MAIN EDITORIAL VIEW
        ══════════════════════════════════════════════════ -->
   <div id="main-view" class="view active">
-    <!-- 1. Header Panel (Clean, Centered, No Logo) -->
-    <header class="header-panel">
-      <div class="hero-brand">
-        <h1 class="brand-wordmark">XPLAINIFY.</h1>
-      </div>
-      <p class="brand-tagline">Understand before you read.</p>
+    <!-- Hero Header: Wordmark & Philosophy -->
+    <header class="editorial-hero">
+      <h1 class="brand-wordmark">XPLAINIFY.</h1>
+      <p class="brand-philosophy">Understand before you read.</p>
     </header>
 
-    <!-- 2. Main Hero / Current Page Panel -->
-    <main class="main-panel">
-      <section class="editorial-section">
-        <div class="section-label">CURRENT PAGE</div>
-        <h2 id="page-title-preview" class="page-title">Detecting page...</h2>
-        <div id="page-domain" class="page-meta"></div>
-        <p class="section-desc">Understand the key takeaways and essential context in seconds.</p>
+    <div class="rule-divider" role="separator"></div>
 
-        <!-- Skeleton placeholder while loading inline -->
-        <div id="inline-skeleton" class="skeleton-container" style="display: none;">
-          <div class="skeleton-line line-100"></div>
-          <div class="skeleton-line line-85"></div>
-          <div class="skeleton-line line-92"></div>
-          <div class="skeleton-line line-65"></div>
+    <!-- Main Content Canvas -->
+    <main class="editorial-body">
+      <!-- Section: Current Page Context -->
+      <section class="editorial-section current-page-section">
+        <div class="section-label">CURRENT PAGE</div>
+        <h2 id="page-title-preview" class="page-headline">Detecting page...</h2>
+        <div id="page-domain" class="page-meta-domain"></div>
+        <p class="section-summary-text">A concise explanation of what matters on this page.</p>
+
+        <!-- Inline skeleton during extraction -->
+        <div id="inline-skeleton" class="skeleton-stream" style="display: none;">
+          <div class="skeleton-bar bar-100"></div>
+          <div class="skeleton-bar bar-85"></div>
+          <div class="skeleton-bar bar-92"></div>
         </div>
 
-        <div class="action-row">
-          <button id="summarize-btn" class="action-btn primary-action">
+        <div class="editorial-action-row">
+          <button id="summarize-btn" class="typographic-btn action-primary" aria-label="Summarize current page">
             <span class="btn-text">SUMMARIZE</span>
             <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-            <span class="btn-indicator" aria-hidden="true"></span>
           </button>
         </div>
       </section>
 
-      <!-- Code Detected Section (Conditional) -->
-      <section id="explain-card" class="editorial-section code-panel" style="display: none;">
+      <!-- Section: Code Detected (Conditional DOM Toggle) -->
+      <section id="explain-card" class="editorial-section code-detected-section" style="display: none;">
+        <div class="rule-divider" role="separator"></div>
         <div class="section-label">CODE DETECTED</div>
-        <div id="code-meta" class="code-meta"></div>
-        <p class="section-desc">Understand the logic and execution flow, not just the syntax.</p>
-        <div class="action-row">
-          <button id="explain-btn" class="action-btn secondary-action">
+        <div id="code-meta" class="code-meta-text"></div>
+        <p class="section-summary-text">Understand the logic behind it, not just the syntax.</p>
+
+        <div class="editorial-action-row">
+          <button id="explain-btn" class="typographic-btn action-secondary" aria-label="Explain detected code">
             <span class="btn-text">EXPLAIN</span>
             <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-            <span class="btn-indicator" aria-hidden="true"></span>
           </button>
         </div>
       </section>
     </main>
 
-    <!-- 3. Footer Panel (Clearly Separated) -->
-    <footer class="footer-panel">
-      <div class="bottom-bar">
-        <div class="status-group">
-          <span id="status-indicator" class="ai-status">
+    <div class="rule-divider" role="separator"></div>
+
+    <!-- Editorial Footer -->
+    <footer class="editorial-footer">
+      <div class="footer-control-row">
+        <div class="status-cell">
+          <span id="status-indicator" class="ai-status configured">
             <span class="status-dot"></span>
             <span class="status-label">AI READY</span>
           </span>
         </div>
-        <div class="nav-group">
-          <button id="settings-btn" class="text-link-btn" title="Open Settings">
+        <div class="nav-cell">
+          <button id="settings-btn" class="typographic-link-btn" title="Open Settings">
             <span class="btn-text">SETTINGS</span>
             <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-            <span class="link-indicator" aria-hidden="true"></span>
           </button>
         </div>
       </div>
 
-      <div class="micro-footer">
-        <span class="author">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
-        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="author-link" target="_blank" rel="noopener noreferrer" title="View Developer Portfolio">
+      <div class="micro-credit-row">
+        <span class="credit-text">Built by <span class="author-highlight">Siddhesh Khankhoje</span></span>
+        <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="portfolio-link" target="_blank" rel="noopener noreferrer" title="View Developer Portfolio">
           <span class="link-text">Portfolio</span>
           <span class="link-arrow" aria-hidden="true">&nearr;</span>
-          <span class="link-indicator" aria-hidden="true"></span>
         </a>
       </div>
     </footer>
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       SETUP VIEW (First-time API Onboarding)
+       2. SETUP VIEW (First-time API Onboarding)
        ══════════════════════════════════════════════════ -->
   <div id="setup-view" class="view">
-    <div class="header-panel">
+    <header class="editorial-hero">
       <div class="section-label">ONBOARDING</div>
-      <h2 class="subview-title">Connect Gemini Key</h2>
-      <p class="subview-desc">Xplainify operates with zero server backend. Provide your Google Gemini API key to enable instant page summarization and code explanation.</p>
-    </div>
+      <h2 class="subview-headline">Connect Gemini Key</h2>
+      <p class="brand-philosophy">Direct browser-to-Gemini execution with zero backend.</p>
+    </header>
 
-    <div class="main-panel">
-      <div class="setup-steps">
-        <div class="step-item">
-          <span class="step-index">01</span>
-          <div class="step-content">
+    <div class="rule-divider" role="separator"></div>
+
+    <main class="editorial-body">
+      <div class="setup-guide">
+        <div class="setup-step">
+          <span class="step-num">01</span>
+          <div class="step-body">
             <strong>Open Google AI Studio</strong>
-            <span>Create a free Gemini API key under your Google account.</span>
+            <p>Generate a free API key using your personal Google account.</p>
           </div>
         </div>
-        <div class="step-item">
-          <span class="step-index">02</span>
-          <div class="step-content">
-            <strong>Copy Your Key</strong>
-            <span>Your key is stored strictly inside Chrome local storage.</span>
+        <div class="setup-step">
+          <span class="step-num">02</span>
+          <div class="step-body">
+            <strong>Copy API Key</strong>
+            <p>Your key never leaves your device and is stored locally in Chrome.</p>
           </div>
         </div>
-        <div class="step-item">
-          <span class="step-index">03</span>
-          <div class="step-content">
-            <strong>Save in Settings</strong>
-            <span>Paste the key once to activate Xplainify.</span>
+        <div class="setup-step">
+          <span class="step-num">03</span>
+          <div class="step-body">
+            <strong>Activate in Settings</strong>
+            <p>Paste the key once to enable instant page and code understanding.</p>
           </div>
         </div>
       </div>
-    </div>
+    </main>
 
-    <footer class="footer-panel">
-      <div class="action-row dual-action">
-        <button id="get-key-btn" class="action-btn secondary-action">
-          <span>GET API KEY</span>
+    <div class="rule-divider" role="separator"></div>
+
+    <footer class="editorial-footer">
+      <div class="editorial-action-row split-action">
+        <button id="get-key-btn" class="typographic-btn action-secondary">
+          <span class="btn-text">GET API KEY</span>
           <span class="btn-arrow" aria-hidden="true">&nearr;</span>
         </button>
-        <button id="open-settings-btn" class="action-btn primary-action">
-          <span>OPEN SETTINGS</span>
+        <button id="open-settings-btn" class="typographic-btn action-primary">
+          <span class="btn-text">OPEN SETTINGS</span>
           <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
       </div>
@@ -142,80 +147,86 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       LOADING VIEW (Skeleton Shimmer + Status)
+       3. LOADING VIEW (Restrained Editorial Stream)
        ══════════════════════════════════════════════════ -->
   <div id="loading-view" class="view">
-    <div class="header-panel">
-      <div class="loading-label-group">
-        <span class="loading-pulse-marker" aria-hidden="true"></span>
-        <span id="loading-text" class="loading-headline">SUMMARIZING</span>
+    <header class="editorial-hero loading-hero">
+      <div class="loading-state-badge">
+        <span class="loading-beacon" aria-hidden="true"></span>
+        <span id="loading-text" class="loading-state-title">SUMMARIZING</span>
       </div>
-      <p id="loading-subtext" class="loading-subline">EXTRACTING KEY TAKEAWAYS</p>
-    </div>
+      <p id="loading-subtext" class="loading-state-desc">EXTRACTING KEY TAKEAWAYS</p>
+    </header>
 
-    <div class="main-panel">
+    <div class="rule-divider" role="separator"></div>
+
+    <main class="editorial-body loading-body">
       <div class="skeleton-stage">
-        <div class="skeleton-line line-100"></div>
-        <div class="skeleton-line line-85"></div>
-        <div class="skeleton-line line-92"></div>
-        <div class="skeleton-line line-75"></div>
-        <div class="skeleton-line line-90"></div>
-        <div class="skeleton-line line-60"></div>
+        <div class="skeleton-bar bar-100"></div>
+        <div class="skeleton-bar bar-85"></div>
+        <div class="skeleton-bar bar-92"></div>
+        <div class="skeleton-bar bar-70"></div>
+        <div class="skeleton-bar bar-90"></div>
+        <div class="skeleton-bar bar-60"></div>
       </div>
-    </div>
+    </main>
 
-    <footer class="footer-panel">
-      <div class="loading-footer-note">Direct browser-to-Gemini connection</div>
+    <div class="rule-divider" role="separator"></div>
+
+    <footer class="editorial-footer">
+      <div class="quiet-footer-note">Direct browser-to-Gemini connection</div>
     </footer>
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       RESULT VIEW (Editorial Reading View)
+       4. RESULT VIEW (Editorial Reading View)
        ══════════════════════════════════════════════════ -->
   <div id="result-view" class="view">
-    <header class="header-panel result-header">
-      <div class="result-nav-bar">
-        <button id="result-back-btn" class="nav-control-btn" aria-label="Back to main view">
+    <header class="result-sticky-header">
+      <div class="result-nav-row">
+        <button id="result-back-btn" class="nav-back-action" aria-label="Back to main view">
           <span class="btn-arrow" aria-hidden="true">&larr;</span>
-          <span>BACK</span>
+          <span class="btn-text">BACK</span>
         </button>
-        <button id="copy-btn" class="copy-control-btn" aria-label="Copy result text">
+        <button id="copy-btn" class="copy-action-btn" aria-label="Copy result text">
           <span class="copy-btn-label">COPY</span>
         </button>
       </div>
     </header>
 
-    <div class="main-panel result-panel" tabindex="0" role="region" aria-label="Summary Results">
-      <div id="result-content" class="result-body">
-        <!-- Generated markdown parsed and safely rendered via DOM -->
+    <div class="result-reading-canvas" tabindex="0" role="region" aria-label="Summary Results">
+      <div id="result-content" class="result-document">
+        <!-- Rendered markdown with clean editorial typography and horizontal rules -->
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       CODE SELECT VIEW (Multi-snippet Selection)
+       5. CODE SELECT VIEW (Multi-snippet Selection)
        ══════════════════════════════════════════════════ -->
   <div id="code-select-view" class="view">
-    <header class="header-panel">
-      <div class="result-nav-bar">
-        <button id="code-select-back-btn" class="nav-control-btn" aria-label="Back to main view">
+    <header class="result-sticky-header">
+      <div class="result-nav-row">
+        <button id="code-select-back-btn" class="nav-back-action" aria-label="Back to main view">
           <span class="btn-arrow" aria-hidden="true">&larr;</span>
-          <span>BACK</span>
+          <span class="btn-text">BACK</span>
         </button>
-        <span class="nav-view-title">DETECTED SNIPPETS</span>
+        <span class="code-select-title">DETECTED SNIPPETS</span>
       </div>
     </header>
 
-    <div class="main-panel">
-      <div id="code-list" class="code-selection-list">
-        <!-- Snippets populated dynamically -->
+    <main class="code-selection-canvas">
+      <div id="code-list" class="code-items-list">
+        <!-- Code snippet cards populated dynamically -->
       </div>
-    </div>
+    </main>
 
-    <footer class="footer-panel">
-      <div class="action-row">
-        <button id="explain-selected-btn" class="action-btn primary-action" disabled>
-          <span>EXPLAIN SNIPPET</span>
+    <div class="rule-divider" role="separator"></div>
+
+    <footer class="editorial-footer">
+      <div class="editorial-action-row">
+        <button id="explain-selected-btn" class="typographic-btn action-primary" disabled>
+          <span class="btn-text">EXPLAIN SNIPPET</span>
           <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
       </div>
@@ -223,29 +234,33 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       ERROR VIEW (Calm, Professional)
+       6. ERROR VIEW (Quiet Technical Notice)
        ══════════════════════════════════════════════════ -->
   <div id="error-view" class="view">
-    <div class="header-panel error-header">
+    <header class="editorial-hero error-hero">
       <div class="section-label error-label">NOTICE</div>
-      <h2 class="error-headline">We couldn't complete that request.</h2>
-    </div>
+      <h2 class="subview-headline">We couldn't complete that request.</h2>
+    </header>
 
-    <div class="main-panel">
-      <p id="error-message" class="error-detail">An unexpected error occurred while processing.</p>
-    </div>
+    <div class="rule-divider" role="separator"></div>
 
-    <footer class="footer-panel">
-      <div class="action-row dual-action">
-        <button id="error-back-btn" class="action-btn secondary-action">
-          <span>BACK</span>
+    <main class="editorial-body">
+      <p id="error-message" class="error-message-text">An unexpected issue occurred while processing this page.</p>
+    </main>
+
+    <div class="rule-divider" role="separator"></div>
+
+    <footer class="editorial-footer">
+      <div class="editorial-action-row split-action">
+        <button id="error-back-btn" class="typographic-btn action-secondary">
+          <span class="btn-text">BACK</span>
         </button>
-        <button id="error-settings-btn" class="action-btn primary-action" style="display: none;">
-          <span>OPEN SETTINGS</span>
+        <button id="error-settings-btn" class="typographic-btn action-primary" style="display: none;">
+          <span class="btn-text">OPEN SETTINGS</span>
           <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
-        <button id="retry-btn" class="action-btn primary-action">
-          <span>TRY AGAIN</span>
+        <button id="retry-btn" class="typographic-btn action-primary">
+          <span class="btn-text">TRY AGAIN</span>
           <span class="btn-arrow" aria-hidden="true">&rarr;</span>
         </button>
       </div>
