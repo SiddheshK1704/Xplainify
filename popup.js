@@ -130,7 +130,7 @@ function isRestrictedUrl(url) {
 async function updateApiStatus() {
   const hasKey = await hasApiKey();
   if (hasKey) {
-    statusIndicator.textContent = '✓ Configured';
+    statusIndicator.textContent = 'Ready';
     statusIndicator.className = 'status-value configured';
   } else {
     statusIndicator.textContent = 'Not configured';
@@ -370,7 +370,20 @@ async function handleCodeDetection(tabId) {
 
     if (result && result.length > 0) {
       detectedCodeBlocks = result;
-      explainBtn.style.display = 'flex'; // show the button
+      // Show the explain card
+      const explainCard = document.getElementById('explain-card');
+      if (explainCard) explainCard.style.display = 'block';
+      explainBtn.style.display = 'flex';
+      // Populate code metadata
+      const codeMeta = document.getElementById('code-meta');
+      if (codeMeta && result.length > 0) {
+        const first = result[0];
+        const lang = formatLanguage ? formatLanguage(first.language) : first.language || 'Code';
+        const totalBlocks = result.length;
+        codeMeta.textContent = totalBlocks === 1 
+          ? `${lang} · ${first.lineCount} lines`
+          : `${totalBlocks} blocks found · ${lang} + more`;
+      }
     }
   } catch (err) {
     console.warn("Could not detect code blocks:", err);
