@@ -6,7 +6,7 @@
   <title>Xplainify</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Slabo+13px&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -125,17 +125,25 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════
-       LOADING VIEW
+       LOADING VIEW (Progressive Focus)
        ══════════════════════════════════════════════════ -->
   <div id="loading-view" class="view">
     <div class="loading-container">
-      <div class="loading-visual">
-        <div class="loading-orbit"></div>
-        <div class="loading-core"></div>
-      </div>
-      <div class="loading-content">
-        <h3 id="loading-text" class="loading-title">Analyzing page…</h3>
-        <p id="loading-subtext" class="loading-subtitle">Extracting the important ideas…</p>
+      <div class="progressive-focus-card" role="status" aria-live="polite">
+        <div class="focus-header">
+          <span class="focus-pulse-dot" aria-hidden="true"></span>
+          <span id="loading-text" class="focus-title">Summarizing</span>
+        </div>
+
+        <div class="focus-stack" aria-hidden="true">
+          <div class="focus-scan-line"></div>
+          <div class="focus-line line-1"></div>
+          <div class="focus-line line-2"></div>
+          <div class="focus-line line-3"></div>
+          <div class="focus-line line-4"></div>
+        </div>
+
+        <p id="loading-subtext" class="focus-subtitle">Finding the signal</p>
       </div>
     </div>
   </div>

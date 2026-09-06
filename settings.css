@@ -30,7 +30,7 @@
   --text-label: #7c849e;
 
   /* Font Stacks */
-  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-primary: 'Slabo 13px', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 
   /* Status Colors */
@@ -93,7 +93,8 @@ body {
   min-height: 100vh;
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-primary);
+  font-size: 13.5px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
