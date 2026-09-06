@@ -7,11 +7,11 @@ Xplainify is an editorial, high-signal Chrome extension designed for students, d
 ## Features
 - **Editorial Design System**: Built with strict sharp geometry (`0px` border-radius), subtle horizontal rules, and purposeful whitespace instead of card containers
 - **Modern Typography Hierarchy**: Plus Jakarta Sans (UI, display & body across weights 400–800), JetBrains Mono (source code & technical metadata)
-- **Dynamic Model Discovery**: Automatically queries Google's Models API to resolve the newest available stable Flash model with 24-hour local caching
+- **Dynamic Model Discovery**: Automatically queries Google's Models API to resolve the newest available stable Flash model with 6-hour local caching
 - **Self-Healing Resilience**: Automatically detects retired models (404), invalidates cache, and re-resolves models on the fly
-- **Progressive Focus Loading**: Subtle typographic scanning animation modeling information distillation
+- **Progressive Focus Loading**: Typographic skeleton scanning animation modeling information distillation
 - **Webpage Summarization**: High-signal TL;DR, Key Points, and Plain English breakdown
-- **Automatic Code Detection**: Detects and explains code blocks (logic, important lines, concepts, analogies)
+- **Automatic Code Detection**: Non-blocking deferred code detection and explanation (logic, important lines, concepts, analogies)
 - **Right-Click Context Menu**: Instantly explain selected code anywhere on the web
 - **Zero Backend & Local Storage**: Direct browser-to-Gemini REST requests with local API key persistence
 - **Strict Key & Prompt Security**: Prompt injection defenses, safe DOM rendering, and zero key logging
@@ -19,7 +19,7 @@ Xplainify is an editorial, high-signal Chrome extension designed for students, d
 ## Tech Stack
 - Chrome Extension Manifest V3
 - HTML / CSS / Vanilla JavaScript (zero framework bloat)
-- Google Gemini REST API (dynamic model resolution via Models API)
+- Google Gemini REST API (dynamic stable Flash model discovery via Models API)
 - Chrome Storage & Scripting APIs
 
 ## Architecture
@@ -73,8 +73,9 @@ flowchart LR
 |---|---|
 | `activeTab` | Access the current tab's content when you click the extension |
 | `scripting` | Inject content extraction scripts into the active tab |
-| `storage` | Store your API key locally in Chrome |
+| `storage` | Store your API key and model cache locally in Chrome |
 | `contextMenus` | Add "Explain Selected Code" to the right-click menu |
+| `https://generativelanguage.googleapis.com/*` | Direct, minimal host permission to Google Gemini REST endpoints |
 
 ## Privacy & Security
 
