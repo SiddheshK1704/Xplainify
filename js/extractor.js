@@ -81,8 +81,8 @@ export function extractPageContent() {
     // Gather headings, paragraphs, lists, and code blocks
     const signalNodes = clone.querySelectorAll('h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre');
     let extractedSegments = [];
-    const targetLength = 15000;
-    const hardLimit = 18000;
+    const targetLength = 12000;
+    const hardLimit = 16000;
     let totalChars = 0;
 
     if (signalNodes.length > 0) {

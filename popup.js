@@ -10,6 +10,8 @@ import { extractPageContent, detectCodeBlocks } from './js/extractor.js';
 import { buildSummaryPrompt, buildCodeExplanationPrompt } from './js/prompts.js';
 import { renderResultSafe, copyToClipboard, formatLanguage } from './js/utils.js';
 
+const popupStartTime = performance.now();
+
 // State Management
 let currentView = 'main';
 let requestState = 'IDLE'; // 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'
@@ -170,6 +172,7 @@ async function handleSummarize() {
     return;
   }
 
+  const t0 = performance.now();
   lastAction = 'summarize';
 
   try {
@@ -191,6 +194,7 @@ async function handleSummarize() {
     showView('loading');
 
     // Extract content using the canonical extractor from js/extractor.js
+    const tExtractStart = performance.now();
     const executionResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: extractPageContent
@@ -204,17 +208,25 @@ async function handleSummarize() {
     if (extraction.error || !extraction.content || extraction.content.length < 50) {
       throw new Error(extraction.error || "Xplainify couldn't find enough readable content on this page.");
     }
+    const tExtractEnd = performance.now();
 
     const apiKey = await getApiKey();
     const pageContent = `Title: ${extraction.title}\n\n${extraction.content}`;
     const prompt = buildSummaryPrompt(pageContent);
 
-    const summary = await callGemini(apiKey, prompt);
+    const tApiStart = performance.now();
+    const summary = await callGemini(apiKey, prompt, 'summary');
+    const tApiEnd = performance.now();
 
     currentResultText = summary;
+    const tRenderStart = performance.now();
     renderResultSafe(resultContent, summary);
+    const tRenderEnd = performance.now();
+
     setRequestState('SUCCESS');
     showView('result');
+
+    console.info(`[Xplainify][Perf] Summarize pipeline: extraction=${(tExtractEnd - tExtractStart).toFixed(1)}ms, api=${(tApiEnd - tApiStart).toFixed(1)}ms, render=${(tRenderEnd - tRenderStart).toFixed(1)}ms, total=${(performance.now() - t0).toFixed(1)}ms`);
 
   } catch (err) {
     console.warn('[Xplainify][Popup] Summarize notice:', err.message || err);
@@ -372,6 +384,7 @@ async function explainProvidedCode(codeString, language = '') {
     return;
   }
 
+  const t0 = performance.now();
   try {
     setRequestState('LOADING');
     if (loadingText) loadingText.textContent = 'EXPLAINING CODE';
@@ -385,12 +398,19 @@ async function explainProvidedCode(codeString, language = '') {
     }
 
     const prompt = buildCodeExplanationPrompt(codeString, language);
-    const explanation = await callGemini(apiKey, prompt);
+    const tApiStart = performance.now();
+    const explanation = await callGemini(apiKey, prompt, 'code');
+    const tApiEnd = performance.now();
 
     currentResultText = explanation;
+    const tRenderStart = performance.now();
     renderResultSafe(resultContent, explanation);
+    const tRenderEnd = performance.now();
+
     setRequestState('SUCCESS');
     showView('result');
+
+    console.info(`[Xplainify][Perf] Explain code pipeline: api=${(tApiEnd - tApiStart).toFixed(1)}ms, render=${(tRenderEnd - tRenderStart).toFixed(1)}ms, total=${(performance.now() - t0).toFixed(1)}ms`);
 
   } catch (err) {
     console.warn('[Xplainify][Popup] Explain notice:', err.message || err);
@@ -548,6 +568,7 @@ async function init() {
 
   // 3. Attach event listeners
   attachEventListeners();
+  console.info(`[Xplainify][Perf] Popup ready in ${(performance.now() - popupStartTime).toFixed(1)}ms`);
 
   // 4. Deferred non-blocking code detection via requestIdleCallback
   if (tab && tab.id && !isRestrictedUrl(tab.url)) {

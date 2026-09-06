@@ -34,25 +34,28 @@ export function removeApiKey() {
   });
 }
 
-export function getCachedModel() {
+export function getCachedModel(purpose = 'summary') {
+  const key = `cached_gemini_model_${purpose}`;
   return new Promise((resolve, reject) => {
-    chrome.storage.local.get(['cached_gemini_model'], (result) => {
+    chrome.storage.local.get([key, 'cached_gemini_model'], (result) => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
-        resolve(result.cached_gemini_model || null);
+        resolve(result[key] || result.cached_gemini_model || null);
       }
     });
   });
 }
 
-export function setCachedModel(modelName) {
+export function setCachedModel(modelName, purpose = 'summary') {
+  const key = `cached_gemini_model_${purpose}`;
   return new Promise((resolve, reject) => {
     const data = {
       modelName,
-      resolvedAt: Date.now()
+      resolvedAt: Date.now(),
+      purpose
     };
-    chrome.storage.local.set({ 'cached_gemini_model': data }, () => {
+    chrome.storage.local.set({ [key]: data }, () => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
@@ -62,9 +65,12 @@ export function setCachedModel(modelName) {
   });
 }
 
-export function invalidateCachedModel() {
+export function invalidateCachedModel(purpose = null) {
   return new Promise((resolve, reject) => {
-    chrome.storage.local.remove('cached_gemini_model', () => {
+    const keys = purpose 
+      ? [`cached_gemini_model_${purpose}`]
+      : ['cached_gemini_model_summary', 'cached_gemini_model_code', 'cached_gemini_model'];
+    chrome.storage.local.remove(keys, () => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
