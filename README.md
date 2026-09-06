@@ -18,7 +18,7 @@ Xplainify is a lightweight, AI-powered Chrome extension designed for students, d
 ## Tech Stack
 - Chrome Extensions Manifest V3
 - HTML / CSS / Vanilla JavaScript
-- Google Gemini API (gemini-2.0-flash)
+- Google Gemini API (gemini-3.8-flash)
 - Chrome Storage API
 - Chrome Scripting API
 
