@@ -38,9 +38,6 @@ const pageTitlePreview = document.getElementById('page-title-preview');
 const pageDomain = document.getElementById('page-domain');
 const settingsBtn = document.getElementById('settings-btn');
 const portfolioLink = document.getElementById('portfolio-link');
-const navApiKeyBtn = document.getElementById('nav-api-key-btn');
-const navSettingsBtn = document.getElementById('nav-settings-btn');
-const navPortfolioLink = document.getElementById('nav-portfolio-link');
 
 // Setup View Elements
 const getKeyBtn = document.getElementById('get-key-btn');
@@ -596,26 +593,6 @@ async function init() {
   // Attach event listeners
   if (summarizeBtn) summarizeBtn.addEventListener('click', handleSummarize);
   if (explainBtn) explainBtn.addEventListener('click', handleExplainCode);
-
-  // Editorial Navigation Listeners
-  if (navApiKeyBtn) {
-    navApiKeyBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://aistudio.google.com/app/api-keys' });
-    });
-  }
-
-  if (navSettingsBtn) {
-    navSettingsBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-    });
-  }
-
-  if (navPortfolioLink) {
-    navPortfolioLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      chrome.tabs.create({ url: 'https://siddheshk17-portfolio.vercel.app/' });
-    });
-  }
 
   if (settingsBtn) {
     settingsBtn.addEventListener('click', () => {
