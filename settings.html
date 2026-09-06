@@ -1,83 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xplainify Settings</title>
-    <link rel="stylesheet" href="settings.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xplainify Settings</title>
+  <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-    <div class="settings-container">
-        <header class="header">
-            <div class="logo">XPLAINIFY</div>
-            <h1 class="title">Settings</h1>
-        </header>
+  <div class="settings-container">
+    <header class="header">
+      <div class="header-brand">
+        <span class="brand-dot"></span>
+        <span class="logo">XPLAINIFY</span>
+      </div>
+      <h1 class="title">Settings</h1>
+      <p class="subtitle">Configure AI model access and manage your local preferences.</p>
+    </header>
 
-        <main>
-            <section class="glass-card">
-                <h3>AI PROVIDER</h3>
-                <div class="provider-info" style="margin-bottom: 24px;">
-                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">Gemini</div>
-                </div>
-                
-                <div id="key-setup" style="display: none;">
-                    <div class="status-indicator not-configured">Not configured</div>
-                    <label for="api-key-input" class="sr-only">API Key</label>
-                    <input type="password" id="api-key-input" placeholder="Enter your Gemini API key" autocomplete="off">
-                    <div class="button-group">
-                        <button id="save-key-btn" class="primary-btn">Save Key</button>
-                        <button id="get-key-btn" class="secondary-btn">Get Key</button>
-                    </div>
-                    <p class="help-text">Your key is stored locally in Chrome.</p>
-                </div>
-
-                <div id="key-saved" style="display: none;">
-                    <div class="status-indicator connected">Connected</div>
-                    <h4>API KEY</h4>
-                    <div id="masked-key-display" class="masked-key"></div>
-                    <div class="button-group">
-                        <button id="update-key-btn" class="secondary-btn">Update</button>
-                        <button id="remove-key-btn" class="danger-btn">Remove</button>
-                    </div>
-                </div>
-
-                <div id="key-update" style="display: none;">
-                    <div class="status-indicator connected">Connected</div>
-                    <label for="update-key-input" class="sr-only">New API Key</label>
-                    <input type="password" id="update-key-input" placeholder="Enter new API key" autocomplete="off">
-                    <div class="button-group">
-                        <button id="save-update-btn" class="primary-btn">Save</button>
-                        <button id="cancel-update-btn" class="secondary-btn">Cancel</button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="glass-card">
-                <h3>PRIVACY</h3>
-                <p>Xplainify values your privacy. Your API key is stored securely in your browser's local storage and is never sent to our servers.</p>
-                <p>All communication happens directly between your browser and the Gemini API.</p>
-            </section>
-        </main>
-
-        <footer class="footer">
-            <h3>ABOUT</h3>
-            <p class="footer-credit">Xplainify &mdash; Clarity, in a click.</p>
-            <p class="footer-credit">Built by Siddhesh Khankhoje</p>
-            <a href="#" id="portfolio-link" class="footer-link">View Portfolio &nearr;</a>
-        </footer>
-    </div>
-
-    <div id="confirm-dialog" class="confirm-overlay" style="display: none;">
-        <div class="confirm-content">
-            <h3>Remove API Key?</h3>
-            <p>Are you sure you want to remove your API key? You will need to re-enter it to use Xplainify.</p>
-            <div class="button-group right-align">
-                <button id="cancel-remove-btn" class="secondary-btn">Cancel</button>
-                <button id="confirm-remove-btn" class="danger-btn">Remove</button>
-            </div>
+    <main>
+      <!-- Section 1: AI Provider & API Key -->
+      <section class="glass-card">
+        <div class="card-section-label">AI PROVIDER</div>
+        
+        <div class="provider-header">
+          <div class="provider-title-group">
+            <h2 class="provider-name">Google Gemini</h2>
+            <span class="provider-model-badge">gemini-2.0-flash</span>
+          </div>
         </div>
-    </div>
 
-    <script type="module" src="settings.js"></script>
+        <!-- State 1: Key Setup (No Key Saved) -->
+        <div id="key-setup" style="display: none;">
+          <div class="status-indicator not-configured">
+            <span class="status-dot"></span>
+            <span>API Key Not Configured</span>
+          </div>
+          <p class="section-help">Enter your Gemini API key below. It will be stored locally in your browser and used directly for all summaries and code explanations.</p>
+          <div class="input-wrapper">
+            <label for="api-key-input" class="sr-only">Gemini API Key</label>
+            <input type="password" id="api-key-input" placeholder="Paste your Gemini API key (AIzaSy...)" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="button-group">
+            <button id="save-key-btn" class="primary-btn">Save Key</button>
+            <button id="get-key-btn" class="secondary-btn">Get API Key &nearr;</button>
+          </div>
+        </div>
+
+        <!-- State 2: Key Saved -->
+        <div id="key-saved" style="display: none;">
+          <div class="status-indicator connected">
+            <span class="status-dot"></span>
+            <span>Connected & Ready</span>
+          </div>
+          <div class="masked-key-wrapper">
+            <span class="masked-key-label">SAVED API KEY</span>
+            <div id="masked-key-display" class="masked-key">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
+          </div>
+          <div class="button-group">
+            <button id="update-key-btn" class="secondary-btn">Update Key</button>
+            <button id="remove-key-btn" class="danger-btn">Remove Key</button>
+          </div>
+        </div>
+
+        <!-- State 3: Key Update -->
+        <div id="key-update" style="display: none;">
+          <div class="status-indicator connected">
+            <span class="status-dot"></span>
+            <span>Updating Saved Key</span>
+          </div>
+          <p class="section-help">Paste your new Gemini API key to replace the currently stored one.</p>
+          <div class="input-wrapper">
+            <label for="update-key-input" class="sr-only">New Gemini API Key</label>
+            <input type="password" id="update-key-input" placeholder="Paste new Gemini API key" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="button-group">
+            <button id="save-update-btn" class="primary-btn">Save</button>
+            <button id="cancel-update-btn" class="secondary-btn">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Privacy -->
+      <section class="glass-card">
+        <div class="card-section-label">PRIVACY &amp; SECURITY</div>
+        <p>Xplainify operates with <strong>zero server-side backend</strong>. All API communications travel directly from your local browser instance to the Google Gemini API.</p>
+        <p>Your API key is never collected, transmitted, or logged by Xplainify.</p>
+      </section>
+
+      <!-- Section 3: About -->
+      <section class="glass-card about-card">
+        <div class="card-section-label">ABOUT</div>
+        <div class="about-info">
+          <p class="about-tagline"><strong>Xplainify</strong> &mdash; Clarity, in a click.</p>
+          <p class="about-version">Version 1.0.0 &bull; Manifest V3</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-credit">Built by Siddhesh Khankhoje</div>
+      <a href="https://siddheshk17-portfolio.vercel.app/" id="portfolio-link" class="footer-link" target="_blank" rel="noopener noreferrer">View Portfolio &nearr;</a>
+    </footer>
+  </div>
+
+  <!-- Remove Confirmation Dialog -->
+  <div id="confirm-dialog" class="confirm-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-content">
+      <h3 id="confirm-title">Remove API Key?</h3>
+      <p>Your Gemini API key will be deleted from Chrome local storage. You will need to re-enter a key to generate summaries or code explanations.</p>
+      <div class="button-group right-align">
+        <button id="cancel-remove-btn" class="secondary-btn">Cancel</button>
+        <button id="confirm-remove-btn" class="danger-btn">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="settings.js"></script>
 </body>
 </html>
