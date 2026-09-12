@@ -245,11 +245,41 @@ function isConceptTagsLine(line) {
  * @param {string} text 
  */
 function parseFormattedInline(element, text) {
-  // Tokenize by inline code (`...`), bold (**...**), and italic (*...*)
-  const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  // Tokenize by inline code (`...`), bold (**...**), italic (*...*), source citations ([§N]), and line citations ([L1], [L2-L5])
+  const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[§\d+\]|\[L\d+(?:-L?\d+)?\])/gi);
 
   for (const token of tokens) {
     if (!token) continue;
+
+    // Source paragraph citation: [§N]
+    const citationMatch = token.match(/^\[§(\d+)\]$/);
+    if (citationMatch) {
+      const srcIndex = citationMatch[1];
+      const ref = document.createElement('span');
+      ref.className = 'source-ref';
+      ref.dataset.src = srcIndex;
+      ref.setAttribute('role', 'button');
+      ref.setAttribute('tabindex', '0');
+      ref.setAttribute('aria-label', `Jump to source §${srcIndex}`);
+      ref.textContent = `§${srcIndex}`;
+      element.appendChild(ref);
+      continue;
+    }
+
+    // Source line citation: [L1] or [L1-L5]
+    const lineMatch = token.match(/^\[L(\d+(?:-L?\d+)?)\]$/i);
+    if (lineMatch) {
+      const lineRange = lineMatch[1];
+      const ref = document.createElement('span');
+      ref.className = 'source-ref line-ref';
+      ref.dataset.line = lineRange;
+      ref.setAttribute('role', 'button');
+      ref.setAttribute('tabindex', '0');
+      ref.setAttribute('aria-label', `Jump to line ${lineRange}`);
+      ref.textContent = `L${lineRange}`;
+      element.appendChild(ref);
+      continue;
+    }
 
     if (token.startsWith('`') && token.endsWith('`') && token.length >= 2) {
       const code = document.createElement('code');

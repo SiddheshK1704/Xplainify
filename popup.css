@@ -36,9 +36,9 @@
   --status-error: #F87171;
 
   /* Typography Stacks */
-  --font-display: 'Syne', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
 
   /* Motion Dynamics */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -162,43 +162,41 @@ body {
 
 /* ── 1. Editorial Hero Header ───────────────────────────────── */
 .editorial-hero {
-  padding: 26px 24px 20px 24px;
+  padding: 24px 24px 18px 24px;
   text-align: center;
   background-color: var(--bg-canvas);
 }
 
 .brand-wordmark {
   font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   line-height: 1;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
   cursor: default;
   user-select: none;
   display: inline-block;
   background: linear-gradient(
     115deg,
     var(--text-primary) 0%,
-    var(--text-primary) 40%,
+    var(--text-primary) 42%,
     #ffffff 50%,
-    rgba(255, 255, 255, 0.85) 54%,
-    var(--text-primary) 64%,
+    rgba(255, 255, 255, 0.9) 53%,
+    var(--text-primary) 62%,
     var(--text-primary) 100%
   );
   background-size: 240% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: wordmarkSheen 7.5s infinite cubic-bezier(0.16, 1, 0.3, 1);
-  transition: letter-spacing 300ms var(--ease-out),
-              filter 300ms var(--ease-out);
-  will-change: background-position, letter-spacing, filter;
+  transition: letter-spacing 260ms var(--ease-out);
+  will-change: background-position, letter-spacing;
 }
 
 .brand-wordmark:hover {
-  letter-spacing: 0.16em;
-  filter: drop-shadow(0 0 12px rgba(66, 116, 217, 0.35));
+  letter-spacing: 0.12em;
 }
 
 @keyframes wordmarkSheen {
@@ -211,10 +209,10 @@ body {
 }
 
 .brand-philosophy {
-  font-family: var(--font-sans);
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -675,6 +673,50 @@ body {
   border: 1px solid var(--rule);
   color: var(--accent-cyan);
   padding: 1px 5px;
+}
+
+/* ── Grounded Source Citations ([§N] & [L1]) ───────────────── */
+.source-ref {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-blue);
+  background: rgba(66, 116, 217, 0.12);
+  border: 1px solid rgba(66, 116, 217, 0.35);
+  padding: 1px 5px;
+  margin-left: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: 1px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms var(--ease-out),
+              color 150ms var(--ease-out),
+              border-color 150ms var(--ease-out),
+              transform 150ms var(--ease-out);
+}
+.source-ref:hover,
+.source-ref:focus-visible {
+  background: var(--accent-blue);
+  color: #ffffff;
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+}
+.source-ref:active {
+  transform: translateY(0);
+}
+.source-ref.line-ref {
+  color: var(--accent-cyan);
+  background: rgba(149, 204, 221, 0.1);
+  border-color: rgba(149, 204, 221, 0.3);
+}
+.source-ref.line-ref:hover,
+.source-ref.line-ref:focus-visible {
+  background: var(--accent-cyan);
+  color: #080A0F;
+  border-color: var(--accent-cyan);
 }
 
 .result-code-wrapper {

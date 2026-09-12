@@ -293,8 +293,21 @@ function applyDetectedCodeBlocks(blocks) {
 
 /**
  * Routes to single code explanation or snippet selection list.
+ * Re-scans the page for fresh detection to handle SPA/late-rendered code.
  */
-function handleExplainCode() {
+async function handleExplainCode() {
+  // Re-scan fresh to catch late-rendered code (SPAs, dynamic file views)
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id && !isRestrictedUrl(tab.url)) {
+      cachedTabId = null;
+      cachedCodeBlocks = null;
+      await handleCodeDetection(tab.id);
+    }
+  } catch {
+    // Non-fatal: proceed with existing detection
+  }
+
   if (!detectedCodeBlocks || detectedCodeBlocks.length === 0) return;
 
   if (detectedCodeBlocks.length === 1) {
@@ -537,6 +550,120 @@ function attachEventListeners() {
     errorSettingsBtn.addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
     });
+  }
+
+  // Delegated click handler for source citations [§N] in result view
+  if (resultContent) {
+    resultContent.addEventListener('click', handleCitationClick);
+    resultContent.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        handleCitationClick(e);
+      }
+    });
+  }
+}
+
+/**
+ * Handles click on a source citation ([§N] or [L1]) in the result view.
+ * Injects a scroll+highlight function into the active tab or highlights local code snippet.
+ * @param {Event} e
+ */
+async function handleCitationClick(e) {
+  const ref = e.target.closest('.source-ref');
+  if (!ref) return;
+
+  const srcIndex = ref.dataset.src;
+  const lineIndex = ref.dataset.line;
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id || isRestrictedUrl(tab.url)) return;
+
+    if (srcIndex) {
+      // Inject highlight CSS once per tab
+      await injectHighlightCSS(tab.id);
+
+      // Inject scroll-to-highlight function on page
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (index) => {
+          const el = document.querySelector(`[data-xplainify-src="${index}"]`);
+          if (!el) return;
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.remove('xplainify-highlight');
+          // Force reflow for re-animation
+          void el.offsetWidth;
+          el.classList.add('xplainify-highlight');
+          setTimeout(() => {
+            el.classList.remove('xplainify-highlight');
+          }, 2500);
+        },
+        args: [srcIndex]
+      });
+    } else if (lineIndex) {
+      // Line citation in code explanation: scroll to code on page if available
+      await injectHighlightCSS(tab.id);
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          const codeEl = document.querySelector('[data-xplainify-src^="code-"], pre code, pre');
+          if (!codeEl) return;
+          codeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          codeEl.classList.remove('xplainify-highlight');
+          void codeEl.offsetWidth;
+          codeEl.classList.add('xplainify-highlight');
+          setTimeout(() => {
+            codeEl.classList.remove('xplainify-highlight');
+          }, 2500);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('[Xplainify][Popup] Citation scroll notice:', err.message || err);
+  }
+}
+
+/** Tracks which tabs have already received highlight CSS injection. */
+const highlightInjectedTabs = new Set();
+
+/**
+ * Injects highlight CSS into the active tab once.
+ * Uses a flat background tint + left border consistent with sharp geometry (no blur/glow).
+ * @param {number} tabId
+ */
+async function injectHighlightCSS(tabId) {
+  if (highlightInjectedTabs.has(tabId)) return;
+  try {
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      css: `
+        @keyframes xplainify-source-fade {
+          0% {
+            background-color: rgba(66, 116, 217, 0.16);
+            border-left-color: #4274D9;
+          }
+          70% {
+            background-color: rgba(66, 116, 217, 0.12);
+            border-left-color: #4274D9;
+          }
+          100% {
+            background-color: transparent;
+            border-left-color: transparent;
+          }
+        }
+        .xplainify-highlight {
+          animation: xplainify-source-fade 2.5s ease-out forwards !important;
+          border-left: 3px solid #4274D9 !important;
+          border-radius: 0px !important;
+          padding-left: 8px !important;
+          box-shadow: none !important;
+          outline: none !important;
+        }
+      `
+    });
+    highlightInjectedTabs.add(tabId);
+  } catch {
+    // Non-fatal: page might restrict CSS injection
   }
 }
 
