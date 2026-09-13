@@ -561,6 +561,13 @@ function attachEventListeners() {
       }
     });
   }
+
+  // Real-time listener for dynamic code blocks detected by page MutationObserver
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message && message.type === 'xplainify-code-updated' && Array.isArray(message.blocks)) {
+      applyDetectedCodeBlocks(message.blocks);
+    }
+  });
 }
 
 /**

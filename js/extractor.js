@@ -242,7 +242,10 @@ export function detectCodeBlocks() {
       '.gatsby-highlight code',
       '.s-code-block',
       '[data-lang]',
-      '[data-language]'
+      '[data-language]',
+      '[style*="monospace" i]',
+      '[style*="Consolas" i]',
+      '[style*="Courier" i]'
     ].join(', ');
 
     let codeElements = Array.from(document.querySelectorAll(selectors));
@@ -284,7 +287,8 @@ export function detectCodeBlocks() {
     ];
 
     /**
-     * Scores a candidate code element using weighted signals.
+     * Scores a candidate code element using weighted signals:
+     * tag structure, monospace font-family, indentation patterns, and syntax density.
      * @param {Element} el
      * @param {string} text
      * @param {string[]} lines
@@ -322,6 +326,24 @@ export function detectCodeBlocks() {
       // Standalone <pre> (no <code> child, lower confidence)
       if (tag === 'pre' && !el.querySelector('code') && score === 0) score += 10;
 
+      // ── Monospace Font-Family Signal ────────────────────────────
+      try {
+        const computed = window.getComputedStyle(el);
+        const font = (computed.fontFamily || '').toLowerCase();
+        if (
+          font.includes('mono') ||
+          font.includes('consolas') ||
+          font.includes('courier') ||
+          font.includes('menlo') ||
+          font.includes('fira code') ||
+          font.includes('source code') ||
+          font.includes('jetbrains mono') ||
+          font.includes('dejavu sans mono')
+        ) {
+          score += 15;
+        }
+      } catch (_) {}
+
       // ── Content signals (supporting only) ────────────────────────
       // Consistent indentation (≥3 lines with leading whitespace)
       const indentedLines = lines.filter(l => l.match(/^[ \t]{2,}/));
@@ -332,7 +354,6 @@ export function detectCodeBlocks() {
       const textLen = Math.max(text.length, 1);
       let kwCount = 0;
       for (const kw of codeKeywords) {
-        // Word boundary match using simple indexOf + boundary check
         let idx = 0;
         while ((idx = textLower.indexOf(kw, idx)) !== -1) {
           const before = idx === 0 || /[^a-zA-Z0-9_]/.test(textLower[idx - 1]);
@@ -455,6 +476,57 @@ export function detectCodeBlocks() {
         index
       });
     });
+
+    // ── Setup MutationObserver for Dynamic / Lazy-Loaded Code ────
+    if (typeof window !== 'undefined' && !window.__xplainify_code_observer_active && document.body && typeof MutationObserver !== 'undefined') {
+      window.__xplainify_code_observer_active = true;
+      let observerDebounce = null;
+
+      const observer = new MutationObserver((mutations) => {
+        let relevant = false;
+        for (const mutation of mutations) {
+          if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            for (const node of mutation.addedNodes) {
+              if (node.nodeType === 1) { // Node.ELEMENT_NODE
+                const tag = (node.tagName || '').toLowerCase();
+                if (
+                  tag === 'pre' ||
+                  tag === 'code' ||
+                  (node.matches && node.matches('pre, code, .highlight, [class*="language-"], [class*="hljs"], .monaco-editor, .cm-editor, .CodeMirror, .ace_editor, .blob-code-content')) ||
+                  (node.querySelector && node.querySelector('pre, code, .highlight, [class*="language-"], [class*="hljs"], .monaco-editor, .cm-editor, .CodeMirror, .ace_editor, .blob-code-content'))
+                ) {
+                  relevant = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (relevant) break;
+        }
+
+        if (relevant) {
+          clearTimeout(observerDebounce);
+          observerDebounce = setTimeout(() => {
+            try {
+              const freshBlocks = detectCodeBlocks();
+              window.__xplainify_detected_code = freshBlocks;
+              if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({
+                  type: 'xplainify-code-updated',
+                  blocks: freshBlocks
+                }).catch(() => {});
+              }
+            } catch (_) {}
+          }, 300);
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      window.__xplainify_code_observer = observer;
+    }
 
     return results;
   } catch {
