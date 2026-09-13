@@ -24,6 +24,7 @@ export class GeminiApiError extends Error {
   constructor(message, {
     status = null,
     isAuth = false,
+    isMissingKey = false,
     isTimeout = false,
     isNetwork = false,
     isSafety = false,
@@ -35,6 +36,7 @@ export class GeminiApiError extends Error {
     this.name = 'GeminiApiError';
     this.status = status;
     this.isAuth = isAuth;
+    this.isMissingKey = isMissingKey;
     this.isTimeout = isTimeout;
     this.isNetwork = isNetwork;
     this.isSafety = isSafety;
@@ -52,7 +54,7 @@ export class GeminiApiError extends Error {
  */
 export async function listAvailableModels(apiKey) {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    throw new GeminiApiError('API key is required to query available models.', { isAuth: true, status: 401 });
+    throw new GeminiApiError('No Gemini API key configured. Please set up your API key in Settings.', { isAuth: true, isMissingKey: true, status: 401 });
   }
 
   const cleanKey = apiKey.trim();
@@ -91,12 +93,16 @@ export async function listAvailableModels(apiKey) {
           detail = errorJson.error.message || '';
         }
       } catch {}
-      const err = new Error(detail ? `Models API HTTP ${response.status}: ${detail}` : `Models API HTTP ${response.status}`);
-      err.status = response.status;
-      if (detail.toLowerCase().includes('api key') || detail.toLowerCase().includes('key not valid')) {
-        err.isAuth = true;
-      }
-      throw err;
+      const isAuth = response.status === 401 ||
+                     response.status === 403 ||
+                     detail.toLowerCase().includes('api key') ||
+                     detail.toLowerCase().includes('key not valid') ||
+                     detail.toLowerCase().includes('api_key_invalid');
+      throw new GeminiApiError(detail ? `Models API HTTP ${response.status}: ${detail}` : `Models API HTTP ${response.status}`, {
+        status: response.status,
+        apiDetail: detail,
+        isAuth
+      });
     }
 
     const data = await response.json();
@@ -326,7 +332,7 @@ export function isSummaryComplete(text) {
  */
 export async function callGemini(apiKey, prompt, purpose = 'summary') {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    throw new GeminiApiError('Your Gemini API key is invalid or unauthorized.', { isAuth: true, status: 401 });
+    throw new GeminiApiError('No Gemini API key configured. Please set up your API key in Settings.', { isAuth: true, isMissingKey: true, status: 401 });
   }
 
   const cleanKey = apiKey.trim();
@@ -495,17 +501,28 @@ async function executeGenerateRequest(apiKey, modelName, body) {
  * @returns {GeminiApiError}
  */
 export function normalizeGeminiError(err) {
+  // (a) Missing API Key
+  if (err.isMissingKey || (err.message && err.message.includes('No Gemini API key'))) {
+    return new GeminiApiError('No Gemini API key configured. Please set up your API key in Settings.', {
+      status: 401,
+      isAuth: true,
+      isMissingKey: true
+    });
+  }
+
+  // (d) Network failures & Timeouts
   if (err.isTimeout) {
-    return new GeminiApiError('The request took too long. Please try again.', { isTimeout: true });
+    return new GeminiApiError('Request timed out. Gemini took too long to respond. Please try again.', { isTimeout: true });
   }
 
   if (err.isNetwork) {
-    return new GeminiApiError('Unable to reach Gemini. Check your internet connection and try again.', { isNetwork: true });
+    return new GeminiApiError('Unable to connect to Gemini. Check your internet connection and try again.', { isNetwork: true });
   }
 
   const msg = (err.message || '').toLowerCase();
   const detail = (err.apiDetail || '').toLowerCase();
 
+  // (b) Invalid / Expired API key (401 / 403)
   if (
     err.isAuth || 
     err.status === 401 || 
@@ -513,35 +530,58 @@ export function normalizeGeminiError(err) {
     msg.includes('401') || 
     msg.includes('403') || 
     msg.includes('api key') || 
+    msg.includes('api_key_invalid') ||
+    msg.includes('key not valid') ||
     detail.includes('api key') ||
     detail.includes('key not valid') ||
-    msg.includes('unauthorized')
+    detail.includes('api_key_invalid') ||
+    detail.includes('permission_denied') ||
+    msg.includes('unauthorized') ||
+    msg.includes('unauthenticated')
   ) {
-    return new GeminiApiError('Your Gemini API key is invalid or unauthorized.', { status: 401, isAuth: true });
+    return new GeminiApiError('Your Gemini API key is invalid or expired. Please check your key in Settings.', {
+      status: 401,
+      isAuth: true
+    });
   }
 
+  // (c) Rate Limiting (429)
+  if (
+    err.status === 429 || 
+    msg.includes('429') || 
+    msg.includes('quota') || 
+    msg.includes('resource_exhausted') || 
+    msg.includes('rate limit') ||
+    detail.includes('resource_exhausted') ||
+    detail.includes('quota')
+  ) {
+    return new GeminiApiError('Gemini API rate limit exceeded. Please wait a moment before trying again.', {
+      status: 429
+    });
+  }
+
+  // Model unavailable (404)
   if (err.status === 404) {
     return new GeminiApiError('The requested AI model is currently unavailable. Please try again.', { status: 404 });
   }
 
-  if (err.status === 429) {
-    return new GeminiApiError('Gemini is temporarily rate-limiting requests. Please try again shortly.', { status: 429 });
+  // Server error (5xx)
+  if (err.status >= 500 && err.status < 600) {
+    return new GeminiApiError('Google Gemini servers are temporarily unavailable. Please try again shortly.', { status: err.status });
   }
 
-  if (err.status >= 500) {
-    return new GeminiApiError('Gemini is temporarily unavailable. Please try again shortly.', { status: err.status });
-  }
-
+  // Safety block
   if (err.isSafety) {
-    return new GeminiApiError('Content could not be processed due to safety restrictions.', { isSafety: true });
+    return new GeminiApiError('Content could not be summarized due to Gemini safety restrictions.', { isSafety: true });
   }
 
-  if (err.isEmpty) {
-    return new GeminiApiError('Received an empty response from Gemini. Please try again.', { isEmpty: true });
+  // (e) Empty or malformed response
+  if (err.isEmpty || msg.includes('empty') || msg.includes('malformed')) {
+    return new GeminiApiError('Gemini returned an empty or malformed response. Please try again.', { isEmpty: true });
   }
 
-  console.error('[Xplainify][API] Request notice:', err.message || err);
-  return new GeminiApiError('Something went wrong while processing this page. Please try again.');
+  console.error('[Xplainify][API] Error notice:', err.message || err);
+  return new GeminiApiError('Something went wrong while communicating with Gemini. Please try again.');
 }
 
 function delay(ms) {
