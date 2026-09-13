@@ -11,7 +11,7 @@
 
 An editorial, developer-grade Chrome extension that transforms dense articles, documentation, and technical code into clear, verifiable insights. Powered directly by Google Gemini with zero intermediate servers.
 
-[Quick Start](#installation) • [How It Works](#how-it-works) • [Architecture](#architecture) • [Usage Guide](#usage-guide) • [Contributing](#contributing)
+[Quick Start](#installation) • [How It Works](#how-it-works) • [Architecture](#architecture) • [Usage Guide](#usage-guide) • [FAQ](#faq--troubleshooting)
 
 </div>
 
@@ -37,7 +37,7 @@ Most AI summarizers fail because of two critical shortcomings:
 
 ## How It Works
 
-Xplainify is engineered as a lightweight, high-signal client utility. It employs deterministic algorithms for extraction, code classification, and model resolution before passing data to Gemini.
+Xplainify is engineered as a lightweight, high-signal client utility. It employs deterministic algorithms for extraction, multi-signal code classification, live mutation observation, and model resolution before passing data to Gemini.
 
 ```
 ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
@@ -53,30 +53,30 @@ Xplainify is engineered as a lightweight, high-signal client utility. It employs
 Extracting readable content from arbitrary web pages requires aggressive noise filtering and layout normalization without breaking client-side single-page applications (SPAs).
 
 ```
-Host DOM  ──>  Target Container  ──>  In-Memory Clone  ──>  Strip 25+ Noise Tags  ──>  Tag [§N] Nodes  ──>  Budget Controller
+Host DOM  ──>  Target Container  ──>  Noise Filtering  ──>  Direct Live [§N] Tagging  ──>  Budget Controller
 ```
 
 - **Target Container Resolution**: Probes high-signal semantic landmarks first (`article`, `main`, `[role="main"]`, `#mw-content-text`, `.theme-doc-markdown`, `.markdown-body`, `.post-content`, etc.), falling back gracefully to `document.body`.
-- **Live DOM Isolation**: Clones the resolved container into memory before manipulation. The host webpage is never mutated or re-rendered during sanitization.
-- **Aggressive Noise Stripping**: Strips over 25 clutter selectors, including scripts, styles, iframes, SVGs, audio/video elements, navbars, sidebars, headers, footers, comment sections, social share bars, cookie/consent banners, and modal dialogs.
-- **Semantic Tree Normalization**: Traverses clean heading tags (`h1`–`h6`), paragraphs (`p`), list elements (`ul`, `ol`), and code blocks (`pre`), preserving the document hierarchy while removing invisible nodes.
-- **Source Paragraph Tagging**: Simultaneously marks live DOM elements with `data-xplainify-src="${index}"` and prepends `[§N]` markers to the extracted text segments for citation linking.
+- **Accurate Live DOM Tagging**: Identifies non-noise content paragraphs and tags live DOM elements directly with `data-xplainify-src="${index}"`, guaranteeing an exact 1-to-1 match between the summary citations and on-page DOM elements.
+- **Aggressive Noise Stripping**: Filters out over 25 clutter selectors, including scripts, styles, iframes, SVGs, audio/video elements, navbars, sidebars, headers, footers, comment sections, social share bars, cookie/consent banners, and modal dialogs.
+- **Semantic Tree Normalization**: Traverses clean heading tags (`h1`–`h6`), paragraphs (`p`), list elements (`ul`, `ol`), and code blocks (`pre`), preserving document hierarchy.
 - **Character Budget Controller**: Adheres to a target length of 12,000 characters with a hard boundary at 16,000 characters, terminating cleanly at sentence or word boundaries to prevent token spillover and ensure sub-second response times.
 
-### 2. Weighted Code Detection Scoring Model
-Many documentation sites and wikis mix technical code snippets with false positives such as mathematical equations, phonetic pronunciations (IPA), bibliographic references, and tabular infoboxes. 
+### 2. Multi-Signal Code Detection & MutationObserver
+Many documentation sites and wikis mix technical code snippets with false positives such as mathematical equations, phonetic pronunciations (IPA), bibliographic references, and tabular infoboxes.
 
-Instead of relying on naive `<code>` element counting, Xplainify evaluates every candidate snippet against a multi-signal **weighted scoring model**. A candidate must achieve a total score of **$\ge 20$**, contain **$\ge 3$ lines**, and contain **$\ge 50$ characters** to be classified as code.
+Xplainify evaluates every candidate snippet against a multi-signal **weighted scoring model** ($\ge 20$ threshold, $\ge 3$ lines, $\ge 50$ characters):
 
 ```mermaid
 flowchart TD
-    Candidate["Candidate Snippet (<pre>, <code>, editor)"] --> QuickCheck{"Lines >= 3 && Chars >= 50?"}
+    Candidate["Candidate Snippet (<pre>, <code>, editor, monospace)"] --> QuickCheck{"Lines >= 3 && Chars >= 50?"}
     QuickCheck -- No --> Reject["Ignored (Not Code)"]
-    QuickCheck -- Yes --> Score["Compute Weighted Score"]
+    QuickCheck -- Yes --> Score["Compute Multi-Signal Score"]
     
     subgraph ScoringSignals ["Signal Evaluation"]
-        Structural["Structural Signals (+10 to +30)"]
-        Content["Content Signals (+3 to +8)"]
+        Structural["Tag Structure (+10 to +30)"]
+        Monospace["Monospace Font-Family (+15)"]
+        Content["Indentation & Syntax Density (+3 to +8)"]
         Blocklist["Blocklist Signals (-15 to -30)"]
     end
     
@@ -94,6 +94,7 @@ flowchart TD
 | **Structural** | Language classes (`language-*`, `lang-*`) | `+25` | Explicit CSS language notation |
 | **Structural** | Platform code containers (GitHub blob, Stack Overflow `s-code-block`) | `+25` | Known developer platforms |
 | **Structural** | Data attributes (`data-lang`, `data-language`) | `+20` | Explicit semantic metadata |
+| **Monospace** | Computed monospace font (`Consolas`, `Monaco`, `Fira Code`, `JetBrains Mono`) | `+15` | Computed font-family inspection |
 | **Structural** | Standalone `<pre>` without nested `<code>` | `+10` | Formatted preformatted text |
 | **Content** | Consistent indentation ($\ge 3$ lines with leading whitespace) | `+8` | Distinctive code structure |
 | **Content** | Keyword density (`const`, `func`, `import`, `class`, `def`, etc. $\ge 3\%$) | `+5` | Programming syntax presence |
@@ -103,8 +104,10 @@ flowchart TD
 | **Blocklist** | Phonetics & unicode (`IPA`, `unicode`) | `-30` | Eliminates dictionary pronunciations |
 | **Blocklist** | Data tables & sidebars (`wikitable`, `infobox`, `navbox`) | `-15` | Eliminates tabular data false positives |
 
+- **Live `MutationObserver` Support**: Code blocks dynamically injected by Single Page Applications (e.g. GitHub PJAX transitions, Next.js client-side routing, documentation search lazy-loading) are continuously detected and broadcast to the extension UI in real time.
+
 ### 3. Grounded Click-to-Source Citations
-When Gemini generates a webpage breakdown, it is strictly instructed to append paragraph markers (e.g., `[§3]` or `[§1][§7]`) to key takeaways.
+When Gemini generates a webpage breakdown, it is strictly instructed to append paragraph markers (e.g., `[§3]` or `[§1][§7]`) to key takeaways and explanations.
 
 1. **Rendering**: Xplainify parses citations into interactive, clickable UI badges.
 2. **Tab Communication**: Clicking a citation badge issues a message via `chrome.scripting.executeScript` targeting the active tab.
@@ -112,11 +115,10 @@ When Gemini generates a webpage breakdown, it is strictly instructed to append p
    ```javascript
    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
    ```
-4. **Visual Accent**: Injects an ephemeral stylesheet applying a 3px accent left border (`#4274D9`) and a soft background fade animation for 2.5 seconds, immediately grounding the AI summary in the author's primary text.
+4. **Visual Accent**: Injects a sharp-geometry highlight applying a 3px accent left border (`#4274D9`) and a flat background tint animation for 2.5 seconds, immediately grounding the AI summary in the author's primary text.
 
-### 4. Dynamic Model Discovery & Self-Healing Resilience
-Xplainify never hardcodes deprecated Gemini models. Instead, it dynamically discovers and adapts to Google's latest production models:
-
+### 4. Robust Gemini API Client & Error Recovery
+- **5-Tier Error Handling**: Explicit, user-friendly messages for missing API keys, invalid/expired credentials (401), rate limits (429), network drops/timeouts, and empty/malformed responses.
 - **Automatic Model Resolution**: Queries Google's `v1beta/models` API using your API key. It filters models supporting `generateContent`, matches the `flash` family, and excludes preview, experimental, thinking, and non-text variants.
 - **Purpose-Tuned Ranking**:
   - **Summarization**: Prioritizes lightweight Flash variants (e.g., `flash-lite`) for the fastest Time-to-First-Token (TTFT).
@@ -152,7 +154,7 @@ flowchart TD
         
         subgraph HostPage ["Active Tab (Webpage DOM)"]
             HostDOM["Webpage Document"]
-            Extractor["Content Extractor (extractor.js)\n• In-Memory Clone\n• Noise Stripping\n• Weighted Code Detection\n• [§N] Tagging"]
+            Extractor["Content Extractor (extractor.js)\n• Multi-Signal Code Detection\n• MutationObserver\n• Live [§N] Tagging"]
         end
     end
 
@@ -212,7 +214,7 @@ Xplainify is built with vanilla web standards and requires **zero build steps, z
 git clone https://github.com/SiddheshK1704/Xplainify.git
 cd Xplainify
 
-# 2. Verify JavaScript syntax locally (optional)
+# 2. Verify JavaScript syntax locally
 node --check background.js popup.js settings.js js/*.js
 
 # 3. Load into Google Chrome
@@ -235,8 +237,8 @@ Xplainify uses Google's Gemini API directly. You can obtain a free API key in se
 2. Sign in with your Google account.
 3. Click **Create API Key** (choose an existing Google Cloud project or generate a default one).
 4. Copy your generated API key.
-5. In Chrome, click the **Xplainify** extension icon, then click the **Gear (⚙️)** icon in the top header to open Settings.
-6. Paste your key into the API Key input field and click **Save Settings**.
+5. In Chrome, click the **Xplainify** extension icon, then click **SETTINGS &rarr;** in the bottom footer.
+6. Paste your key into the API Key input field and click **Save Key**.
 
 > [!TIP]
 > Google AI Studio offers a generous free tier (15 requests per minute, 1,500 requests per day for Flash models), which is more than sufficient for personal reading and research.
@@ -248,7 +250,7 @@ Xplainify uses Google's Gemini API directly. You can obtain a free API key in se
 ### 1. Webpage Summarization
 1. Open any article, blog post, or documentation page in Chrome.
 2. Click the **Xplainify** toolbar icon.
-3. Click the **Summarize Page** button.
+3. Click the **SUMMARIZE &rarr;** button.
 4. Xplainify extracts the page content, runs dynamic model discovery, and presents:
    - **TL;DR**: A concise 2–3 sentence executive summary.
    - **Key Points**: Essential bullet points annotated with `[§N]` source markers.
@@ -256,24 +258,25 @@ Xplainify uses Google's Gemini API directly. You can obtain a free API key in se
 
 ### 2. Code Explanation
 1. Navigate to a page containing code (GitHub, MDN, Stack Overflow, documentation).
-2. Click **Xplainify**, then choose **Explain Code**.
-3. Xplainify highlights detected code snippets that passed the weighted scoring model.
+2. Click **Xplainify**, then choose **EXPLAIN &rarr;**.
+3. Xplainify evaluates code snippets using the multi-signal scoring model.
 4. Select any snippet to generate:
-   - **Overview**: Core purpose of the code.
-   - **Logic & Flow**: Step-by-step breakdown of how the program operates.
-   - **Important Lines**: Granular explanation of critical lines (with `[L1]`, `[L2]` references).
-   - **Analogy**: A relatable real-world comparison to cement understanding.
+   - **What Does This Code Do?**: Core purpose of the code.
+   - **Explain It Simply**: Beginner-friendly explanation with line citations (`[L1]`, `[L2]`).
+   - **How Does the Logic Work?**: Step-by-step breakdown of how the program operates.
+   - **Important Lines**: Granular explanation of critical lines.
+   - **Important Concepts & Analogy**: Relatable real-world comparisons to cement understanding.
 
 ### 3. Right-Click Context Menu
 1. Highlight any code snippet or text on any webpage.
 2. Right-click the highlighted text.
-3. Select **Xplainify: Explain Selected Code**.
+3. Select **Explain Selected Code with Xplainify**.
 4. The Xplainify popup opens automatically and analyzes the selected snippet.
 
 ### 4. Grounded Citation Verification
 Whenever you read a summarized point with a bracketed citation tag like `[§3]`:
 - **Click the citation badge**.
-- Your active browser tab instantly scrolls to the source paragraph and illuminates it with an accent border and subtle highlight animation.
+- Your active browser tab instantly scrolls to the source paragraph and illuminates it with a flat background tint and left accent border.
 
 ---
 
@@ -344,13 +347,8 @@ Xplainify/
 │   ├── extractor.js       # Semantic extraction pipeline & weighted code scoring
 │   └── utils.js           # Safe DOM renderer (no innerHTML), escaping & clipboard
 ├── icons/                 # Extension toolbar icons (16px, 48px, 128px)
-├── .github/
-│   └── ISSUE_TEMPLATE/    # Standard GitHub issue and feature templates
-│       ├── bug_report.md
-│       └── feature_request.md
 ├── README.md              # Repository overview and documentation
 ├── PRIVACY.md             # Privacy policy & data guarantees
-├── CONTRIBUTING.md        # Contribution guidelines & coding conventions
 └── .gitignore             # Local files and operating system ignore rules
 ```
 
@@ -360,7 +358,7 @@ Xplainify/
 
 Xplainify is built upon an editorial, developer-utility aesthetic characterized by:
 - **Sharp 0px Geometry**: Uncompromising `border-radius: 0px` across all buttons, input fields, code blocks, and dialog surfaces.
-- **Purposeful Whitespace & Rules**: High-contrast dividers (`1px solid var(--border)`) replace heavy container cards.
+- **Purposeful Whitespace & Rules**: High-contrast dividers (`1px solid var(--rule)`) replace heavy container cards.
 - **Typographic Hierarchy**:
   - **Display / Brand**: [Geist Sans](https://vercel.com/font)
   - **Interface / Body**: [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans)
@@ -377,12 +375,6 @@ Xplainify was designed from day one to respect user privacy:
 - **No `eval()` or `innerHTML`**: All UI rendering is performed using safe DOM construction.
 
 For comprehensive details, review our full [PRIVACY.md](PRIVACY.md).
-
----
-
-## Contributing
-
-Contributions, bug reports, and suggestions are warmly welcomed! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on code style, testing practices, and our pull request process.
 
 ---
 
