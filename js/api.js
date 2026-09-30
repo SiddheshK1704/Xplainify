@@ -13,9 +13,9 @@ const MODEL_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
 // Fallbacks if Models API is temporarily unreachable during first run
-const DEFAULT_FALLBACK_SUMMARY_MODEL = 'gemini-2.0-flash-lite';
-const DEFAULT_FALLBACK_CODE_MODEL = 'gemini-1.5-flash';
-const DEFAULT_FALLBACK_MODEL = 'gemini-1.5-flash';
+const DEFAULT_FALLBACK_SUMMARY_MODEL = 'gemini-2.0-flash';
+const DEFAULT_FALLBACK_CODE_MODEL = 'gemini-2.0-flash';
+const DEFAULT_FALLBACK_MODEL = 'gemini-2.0-flash';
 
 /**
  * Standardized Error class for Gemini API interactions.
@@ -148,8 +148,7 @@ export function filterAndRankFlashModels(models, purpose = null) {
 
     // 3. Exclude preview, experimental, thinking, and test models
     if (name.includes('preview') || 
-        name.includes('exp') || 
-        name.includes('experimental') || 
+        /\bexp\b|-exp[-\d]|experimental/i.test(name) || 
         name.includes('thinking') || 
         name.includes('test')) {
       return false;
@@ -253,6 +252,7 @@ export async function resolveBestGeminiModel(apiKey, forceRefresh = false, purpo
     const selected = filterAndRankFlashModels(available, purpose);
 
     if (selected) {
+      console.info(`[Xplainify][Model] Resolved: ${selected} (purpose: ${purpose})`);
       await setCachedModel(selected, purpose);
       return selected;
     }
@@ -330,7 +330,7 @@ export async function callGemini(apiKey, prompt, purpose = 'summary') {
   }
 
   const cleanKey = apiKey.trim();
-  const maxOutputTokens = purpose === 'summary' ? 1400 : 1600;
+  const maxOutputTokens = purpose === 'summary' ? 2048 : 2048;
   const requestBody = JSON.stringify({
     contents: [{
       parts: [{
@@ -384,6 +384,16 @@ export async function callGemini(apiKey, prompt, purpose = 'summary') {
       try {
         result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
         console.info('[Xplainify][API] Network retry succeeded.');
+      } catch (retryErr) {
+        throw normalizeGeminiError(retryErr);
+      }
+    } else if (firstErr.isEmpty) {
+      // 4. If empty response: model may not handle this content — re-resolve and retry once
+      console.warn(`[Xplainify][API] Model "${activeModel}" returned empty. Re-resolving and retrying once...`);
+      await invalidateCachedModel(purpose);
+      try {
+        activeModel = await resolveBestGeminiModel(cleanKey, true, purpose);
+        result = await executeGenerateRequest(cleanKey, activeModel, requestBody);
       } catch (retryErr) {
         throw normalizeGeminiError(retryErr);
       }
@@ -457,8 +467,10 @@ async function executeGenerateRequest(apiKey, modelName, body) {
     !Array.isArray(data.candidates) ||
     data.candidates.length === 0
   ) {
+    // Log exactly what came back for debugging
+    console.warn('[Xplainify][API] Empty candidates. promptFeedback:', JSON.stringify(data?.promptFeedback || null), 'candidatesLength:', data?.candidates?.length);
     if (data && data.promptFeedback && data.promptFeedback.blockReason) {
-      throw new GeminiApiError('Content blocked by safety policy.', { isSafety: true });
+      throw new GeminiApiError(`Content blocked by safety policy (${data.promptFeedback.blockReason}).`, { isSafety: true });
     }
     throw new GeminiApiError('Empty or unexpected response structure from Gemini.', { isEmpty: true });
   }
@@ -470,6 +482,16 @@ async function executeGenerateRequest(apiKey, modelName, body) {
     throw new GeminiApiError('Content blocked by safety policy.', { isSafety: true, finishReason });
   }
 
+  // RECITATION = Gemini's copyright/quotation guardrail — very common on news/blog/doc pages
+  if (finishReason === 'RECITATION') {
+    throw new GeminiApiError('Content blocked due to recitation restrictions. Try a different page.', { isEmpty: true, finishReason });
+  }
+
+  // Other terminal block reasons
+  if (['BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII'].includes(finishReason)) {
+    throw new GeminiApiError(`Content blocked (${finishReason}). Try a different page.`, { isSafety: true, finishReason });
+  }
+
   const parts = candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
   // CRITICAL: Concatenate ALL text parts to avoid dropping tokens when Gemini chunks output
   const fullText = parts
@@ -479,6 +501,7 @@ async function executeGenerateRequest(apiKey, modelName, body) {
 
   const trimmedText = fullText.trim();
   if (trimmedText.length === 0) {
+    console.warn('[Xplainify][API] Empty text. finishReason:', finishReason, 'partsCount:', parts.length, 'rawParts:', JSON.stringify(parts.slice(0, 3)));
     throw new GeminiApiError('Empty response text from Gemini.', { isEmpty: true, finishReason });
   }
 
